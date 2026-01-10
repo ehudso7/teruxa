@@ -1,7 +1,6 @@
 import { createWriteStream, mkdirSync, existsSync, statSync, createReadStream } from 'fs';
 import { join } from 'path';
 import archiver from 'archiver';
-import { v4 as uuidv4 } from 'uuid';
 import {
   projectRepository,
   angleRepository,

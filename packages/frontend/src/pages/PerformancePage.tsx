@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
-import { performanceApi, anglesApi } from '../services/api';
+import { performanceApi } from '../services/api';
 import { PageLoading } from '../components/Loading';
 import type { PerformanceMetrics, WinnerAnalysis } from '../types';
 
@@ -14,18 +14,18 @@ export function PerformancePage() {
 
   const { data: metrics, isLoading: metricsLoading } = useQuery({
     queryKey: ['metrics', projectId],
-    queryFn: () => performanceApi.getMetrics(projectId!),
+    queryFn: () => performanceApi.getMetrics(projectId ?? ''),
     enabled: !!projectId,
   });
 
   const { data: imports, isLoading: importsLoading } = useQuery({
     queryKey: ['imports', projectId],
-    queryFn: () => performanceApi.listImports(projectId!),
+    queryFn: () => performanceApi.listImports(projectId ?? ''),
     enabled: !!projectId,
   });
 
   const importMutation = useMutation({
-    mutationFn: (file: File) => performanceApi.importCSV(projectId!, file),
+    mutationFn: (file: File) => performanceApi.importCSV(projectId ?? '', file),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['imports', projectId] });
       queryClient.invalidateQueries({ queryKey: ['metrics', projectId] });
@@ -38,7 +38,7 @@ export function PerformancePage() {
   });
 
   const winnersMutation = useMutation({
-    mutationFn: () => performanceApi.identifyWinners(projectId!, 3, 'ctr'),
+    mutationFn: () => performanceApi.identifyWinners(projectId ?? '', 3, 'ctr'),
     onSuccess: (data) => {
       if (data) {
         setWinnerAnalysis(data);
@@ -50,7 +50,7 @@ export function PerformancePage() {
   });
 
   const iterateMutation = useMutation({
-    mutationFn: () => performanceApi.generateIterations(projectId!, 3, 5),
+    mutationFn: () => performanceApi.generateIterations(projectId ?? '', 3, 5),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['angles', projectId] });
       toast.success(`${data.length} new angles generated`);

@@ -24,19 +24,19 @@ export function PacksPage() {
 
   const { data: packsData, isLoading: packsLoading } = useQuery({
     queryKey: ['packs', projectId],
-    queryFn: () => packsApi.list(projectId!),
+    queryFn: () => packsApi.list(projectId ?? ''),
     enabled: !!projectId,
   });
 
   const { data: anglesData, isLoading: anglesLoading } = useQuery({
     queryKey: ['angles', projectId, 'approved'],
-    queryFn: () => anglesApi.list(projectId!, { status: 'approved' }),
+    queryFn: () => anglesApi.list(projectId ?? '', { status: 'approved' }),
     enabled: !!projectId && isCreateOpen,
   });
 
   const createMutation = useMutation({
     mutationFn: (data: { name: string; angleIds: string[]; locales: Locale[]; platforms: Platform[] }) =>
-      packsApi.create(projectId!, data),
+      packsApi.create(projectId ?? '', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['packs', projectId] });
       setIsCreateOpen(false);

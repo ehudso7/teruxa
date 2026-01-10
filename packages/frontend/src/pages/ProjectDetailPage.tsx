@@ -11,18 +11,18 @@ export function ProjectDetailPage() {
 
   const { data: project, isLoading } = useQuery({
     queryKey: ['project', projectId],
-    queryFn: () => projectsApi.get(projectId!),
+    queryFn: () => projectsApi.get(projectId ?? ''),
     enabled: !!projectId,
   });
 
   const { data: anglesData } = useQuery({
     queryKey: ['angles', projectId],
-    queryFn: () => anglesApi.list(projectId!),
+    queryFn: () => anglesApi.list(projectId ?? ''),
     enabled: !!projectId,
   });
 
   const generateMutation = useMutation({
-    mutationFn: () => anglesApi.generate(projectId!, 3),
+    mutationFn: () => anglesApi.generate(projectId ?? '', 3),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['angles', projectId] });
       toast.success('Angles generated successfully');
@@ -33,7 +33,7 @@ export function ProjectDetailPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => projectsApi.delete(projectId!),
+    mutationFn: () => projectsApi.delete(projectId ?? ''),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       toast.success('Project deleted');

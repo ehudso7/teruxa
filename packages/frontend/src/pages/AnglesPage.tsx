@@ -28,14 +28,14 @@ export function AnglesPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['angles', projectId, statusFilter],
     queryFn: () =>
-      anglesApi.list(projectId!, {
+      anglesApi.list(projectId ?? '', {
         status: statusFilter === 'all' ? undefined : statusFilter,
       }),
     enabled: !!projectId,
   });
 
   const generateMutation = useMutation({
-    mutationFn: (count: number) => anglesApi.generate(projectId!, count),
+    mutationFn: (count: number) => anglesApi.generate(projectId ?? '', count),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['angles', projectId] });
       toast.success('Angles generated successfully');

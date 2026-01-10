@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { aiService } from '../../src/services/ai.service.js';
 import type { SeedData, GeneratedAngle } from '../../src/types/index.js';
 
@@ -158,10 +158,22 @@ describe('AIService', () => {
     it('should generate iterations based on winners', async () => {
       const winnerAngles: GeneratedAngle[] = [
         {
-          hook: 'Winning hook',
-          problemAgitation: 'Winning problem',
-          solution: 'Winning solution',
-          cta: 'Winning CTA',
+          hook: 'Winning hook 1',
+          problemAgitation: 'Winning problem 1',
+          solution: 'Winning solution 1',
+          cta: 'Winning CTA 1',
+        },
+        {
+          hook: 'Winning hook 2',
+          problemAgitation: 'Winning problem 2',
+          solution: 'Winning solution 2',
+          cta: 'Winning CTA 2',
+        },
+        {
+          hook: 'Winning hook 3',
+          problemAgitation: 'Winning problem 3',
+          solution: 'Winning solution 3',
+          cta: 'Winning CTA 3',
         },
       ];
       const patterns = ['Pattern 1', 'Pattern 2'];
@@ -174,6 +186,7 @@ describe('AIService', () => {
         count
       );
 
+      // Mock mode returns min(winnerAngles.length, count) iterations
       expect(iterations).toHaveLength(count);
     });
 

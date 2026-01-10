@@ -26,6 +26,9 @@ A production-grade SaaS application for generating, localizing, and optimizing U
 - Node.js 18+
 - PostgreSQL 14+ (or use Docker)
 - OpenAI API key (optional - mock mode available)
+- Network access to `binaries.prisma.sh` (required for Prisma client generation)
+
+> **Note**: The backend build requires Prisma client generation, which downloads binaries from Prisma's servers. If you're behind a corporate firewall or in a restricted network environment, you may need to configure proxy settings or whitelist `binaries.prisma.sh`.
 
 ### Installation
 

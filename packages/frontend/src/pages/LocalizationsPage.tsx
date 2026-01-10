@@ -25,7 +25,7 @@ export function LocalizationsPage() {
 
   const { data: anglesData, isLoading } = useQuery({
     queryKey: ['angles', projectId],
-    queryFn: () => anglesApi.list(projectId!, { status: 'approved' }),
+    queryFn: () => anglesApi.list(projectId ?? '', { status: 'approved' }),
     enabled: !!projectId,
   });
 
@@ -85,13 +85,13 @@ export function LocalizationsPage() {
   });
 
   // Group by angle
-  const groupedContent = filteredContent?.reduce(
+  const groupedContent = filteredContent?.reduce<Record<string, LocalizedContent[]>>(
     (acc, content) => {
-      if (!acc[content.angleId]) acc[content.angleId] = [];
-      acc[content.angleId].push(content);
+      const existing = acc[content.angleId] ?? [];
+      acc[content.angleId] = [...existing, content];
       return acc;
     },
-    {} as Record<string, LocalizedContent[]>
+    {}
   );
 
   return (
