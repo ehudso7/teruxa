@@ -1,6 +1,7 @@
 import { prisma } from './prisma-client.js';
-import type { CreativePack, PackAngle, Prisma } from '@prisma/client';
+import type { CreativePack, PackAngle } from '@prisma/client';
 import type { PackManifest, Locale, Platform } from '../types/index.js';
+import { toInputJson } from '../utils/prismaJson.js';
 
 export interface CreatePackData {
   name: string;
@@ -34,7 +35,7 @@ export class PackRepository {
       data: {
         name: data.name,
         projectId: data.projectId,
-        manifest: data.manifest as Prisma.InputJsonValue,
+        manifest: toInputJson(data.manifest),
         filePath: data.filePath,
         downloadUrl: data.downloadUrl,
         fileSize: data.fileSize ? BigInt(data.fileSize) : null,
@@ -56,7 +57,13 @@ export class PackRepository {
     return result.count;
   }
 
-  async findById(id: string): Promise<PackWithAngles | null> {
+  async findById(id: string): Promise<CreativePack | null> {
+    return prisma.creativePack.findUnique({
+      where: { id },
+    });
+  }
+
+  async findWithAngles(id: string): Promise<PackWithAngles | null> {
     return prisma.creativePack.findUnique({
       where: { id },
       include: {
@@ -72,62 +79,58 @@ export class PackRepository {
           },
         },
       },
+    }) as Promise<PackWithAngles | null>;
+  }
+
+  async findByProjectId(projectId: string): Promise<CreativePack[]> {
+    return prisma.creativePack.findMany({
+      where: { projectId },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
-  async findByProjectId(
-    projectId: string,
-    options?: {
-      page?: number;
-      limit?: number;
+  async updateDownloadInfo(
+    id: string,
+    data: {
+      filePath?: string;
+      downloadUrl?: string;
+      fileSize?: number;
     }
-  ): Promise<{ packs: CreativePack[]; total: number }> {
-    const page = options?.page ?? 1;
-    const limit = options?.limit ?? 20;
-    const skip = (page - 1) * limit;
-
-    const [packs, total] = await Promise.all([
-      prisma.creativePack.findMany({
-        where: { projectId },
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          _count: {
-            select: {
-              packAngles: true,
-            },
-          },
-        },
-      }),
-      prisma.creativePack.count({ where: { projectId } }),
-    ]);
-
-    return { packs, total };
-  }
-
-  async incrementDownloadCount(id: string): Promise<void> {
-    await prisma.creativePack.update({
+  ): Promise<CreativePack> {
+    return prisma.creativePack.update({
       where: { id },
       data: {
-        downloadCount: { increment: 1 },
+        ...(data.filePath && { filePath: data.filePath }),
+        ...(data.downloadUrl && { downloadUrl: data.downloadUrl }),
+        ...(data.fileSize && { fileSize: BigInt(data.fileSize) }),
       },
     });
   }
 
-  async updateFilePath(id: string, filePath: string, fileSize: number): Promise<CreativePack> {
-    return prisma.creativePack.update({
+  async incrementDownloads(id: string): Promise<void> {
+    await prisma.creativePack.update({
       where: { id },
       data: {
-        filePath,
-        fileSize: BigInt(fileSize),
-        downloadUrl: `/api/packs/${id}/download`,
+        downloadCount: {
+          increment: 1,
+        },
       },
     });
   }
 
   async delete(id: string): Promise<void> {
     await prisma.creativePack.delete({ where: { id } });
+  }
+
+  async deleteExpired(): Promise<number> {
+    const result = await prisma.creativePack.deleteMany({
+      where: {
+        expiresAt: {
+          lt: new Date(),
+        },
+      },
+    });
+    return result.count;
   }
 }
 

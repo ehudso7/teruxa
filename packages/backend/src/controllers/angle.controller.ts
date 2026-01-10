@@ -76,7 +76,7 @@ export class AngleController {
     req: Request<{ id: string }, unknown, { isWinner: boolean }>,
     res: Response
   ) {
-    const angle = await angleService.setWinner(req.params.id, req.body.isWinner);
+    const angle = await angleService.setWinner(req.params.id);
     res.json({
       success: true,
       data: angle,

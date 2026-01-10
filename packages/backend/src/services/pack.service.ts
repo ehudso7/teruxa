@@ -114,7 +114,10 @@ class PackService {
       await this.generateZip(pack.id, filePath, contentByAngle, manifest);
 
       const stats = statSync(filePath);
-      const updatedPack = await packRepository.updateFilePath(pack.id, filePath, stats.size);
+      const updatedPack = await packRepository.updateDownloadInfo(pack.id, {
+        filePath,
+        fileSize: stats.size,
+      });
 
       // Add pack angles
       const packAngles: Array<{ angleId: string; locale: Locale; platform: Platform }> = [];
@@ -140,7 +143,7 @@ class PackService {
   }
 
   private async generateZip(
-    packId: string,
+    _packId: string,
     filePath: string,
     contentByAngle: Map<string, LocalizedContent[]>,
     manifest: PackManifest
@@ -251,12 +254,12 @@ class PackService {
     return pack;
   }
 
-  async getProjectPacks(projectId: string, options?: { page?: number; limit?: number }) {
+  async getProjectPacks(projectId: string) {
     const exists = await projectRepository.exists(projectId);
     if (!exists) {
       throw new NotFoundError('Project');
     }
-    return packRepository.findByProjectId(projectId, options);
+    return packRepository.findByProjectId(projectId);
   }
 
   async downloadPack(id: string): Promise<PackDownload> {
@@ -270,7 +273,7 @@ class PackService {
     }
 
     // Increment download count
-    await packRepository.incrementDownloadCount(id);
+    await packRepository.incrementDownloads(id);
 
     const stats = statSync(pack.filePath);
     const stream = createReadStream(pack.filePath);

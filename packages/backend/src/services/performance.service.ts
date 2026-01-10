@@ -9,7 +9,8 @@ import { aiService } from './ai.service.js';
 import { createChildLogger } from '../utils/logger.js';
 import { NotFoundError, ValidationError } from '../types/index.js';
 import { csvRowSchema } from '../validators/index.js';
-import type { SeedData, GeneratedAngle, ImportResult, WinnerAnalysis } from '../types/index.js';
+import { parseSeedData } from '../schemas/seedData.schema.js';
+import type { GeneratedAngle, ImportResult, WinnerAnalysis, Platform, Locale } from '../types/index.js';
 import type { AngleCard, ImportBatch } from '@prisma/client';
 
 const logger = createChildLogger('performance-service');
@@ -40,8 +41,8 @@ class PerformanceService {
       conversions: number;
       spend: number;
       revenue: number;
-      platform?: string;
-      locale?: string;
+      platform?: Platform;
+      locale?: Locale;
       dateRangeStart?: Date;
       dateRangeEnd?: Date;
     }> = [];
@@ -49,11 +50,6 @@ class PerformanceService {
     try {
       // Parse CSV
       const records = await this.parseCSV(fileBuffer);
-
-      // Update total rows
-      await performanceRepository.updateImportBatch(batch.id, {
-        rowsTotal: records.length,
-      });
 
       // Validate each row
       for (let i = 0; i < records.length; i++) {
@@ -84,8 +80,8 @@ class PerformanceService {
             conversions: validated.conversions,
             spend: validated.spend,
             revenue: validated.revenue,
-            platform: validated.platform,
-            locale: validated.locale,
+            platform: validated.platform as Platform | undefined,
+            locale: validated.locale as Locale | undefined,
             dateRangeStart: validated.date_start ? new Date(validated.date_start) : undefined,
             dateRangeEnd: validated.date_end ? new Date(validated.date_end) : undefined,
           });
@@ -219,7 +215,7 @@ class PerformanceService {
 
     // Mark winners in database
     for (const performer of topPerformers) {
-      await angleRepository.setWinner(performer.angleId, true);
+      await angleRepository.update(performer.angleId, { isWinner: true });
     }
 
     // Get full angle data for pattern analysis
@@ -287,10 +283,12 @@ class PerformanceService {
 
     const topN = options?.topN ?? 3;
     const count = options?.count ?? 5;
-    const seedData = project.seedData as SeedData;
+    const seedData = parseSeedData(project.seedData);
 
     // Get winners
-    const winners = await angleRepository.getWinners(projectId);
+    const { angles: winners } = await angleRepository.findByProjectId(projectId, {
+      isWinner: true,
+    });
     if (winners.length === 0) {
       throw new ValidationError(
         'No winners identified. Run winner identification first.'
