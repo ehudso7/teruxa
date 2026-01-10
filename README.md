@@ -23,12 +23,17 @@ A production-grade SaaS application for generating, localizing, and optimizing U
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20 LTS (v20.x recommended, see .nvmrc)
 - PostgreSQL 14+ (or use Docker)
 - OpenAI API key (optional - mock mode available)
 - Network access to `binaries.prisma.sh` (required for Prisma client generation)
 
-> **Note**: The backend build requires Prisma client generation, which downloads binaries from Prisma's servers. If you're behind a corporate firewall or in a restricted network environment, you may need to configure proxy settings or whitelist `binaries.prisma.sh`.
+> **Note**: The backend build requires Prisma client generation, which downloads binaries from Prisma's servers. If you're behind a corporate firewall or in a restricted network environment:
+> - You may need to configure proxy settings or whitelist `binaries.prisma.sh`
+> - Alternatively, set `PRISMA_ENGINES_MIRROR` environment variable to use a custom mirror:
+>   ```bash
+>   export PRISMA_ENGINES_MIRROR=https://your-mirror.com
+>   ```
 
 ### Installation
 
