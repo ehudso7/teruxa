@@ -84,7 +84,7 @@ export function PerformancePage() {
         <Link to={`/projects/${projectId}`} className="text-primary-600 hover:text-primary-700 text-sm mb-2 inline-block">
           &larr; Back to Project
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Performance & Winner Loop</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Performance & Iteration</h1>
         <p className="text-gray-600 mt-1">Import data, identify winners, and generate iterations</p>
       </div>
 
@@ -183,9 +183,9 @@ export function PerformancePage() {
         </div>
       )}
 
-      {/* Winner Loop */}
+      {/* Performance Iteration */}
       <div className="card">
-        <h2 className="text-lg font-semibold mb-4">Winner Loop</h2>
+        <h2 className="text-lg font-semibold mb-4">Iterate Winners</h2>
         <div className="flex gap-4 mb-6">
           <button
             onClick={() => winnersMutation.mutate()}

@@ -1,8 +1,8 @@
 {
-  "name": "ugc-localizer",
+  "name": "teruxa",
   "version": "1.0.0",
   "private": true,
-  "description": "UGC Localizer + Angle Engine + Winner Loop MVP",
+  "description": "Teruxa UGC Ops - Create, localize, and optimize UGC ad creatives",
   "workspaces": [
     "packages/*"
   ],

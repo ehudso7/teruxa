@@ -15,7 +15,7 @@ export function Layout() {
           <div className="flex justify-between h-16">
             <div className="flex">
               <Link to="/" className="flex items-center">
-                <span className="text-xl font-bold text-primary-600">UGC Localizer</span>
+                <span className="text-xl font-bold text-primary-600">Teruxa</span>
               </Link>
               <div className="hidden sm:ml-8 sm:flex sm:space-x-4">
                 {navigation.map((item) => (

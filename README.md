@@ -1,13 +1,13 @@
-# UGC Localizer + Angle Engine + Winner Loop
+# Teruxa UGC Ops
 
 A production-grade SaaS application for generating, localizing, and optimizing UGC (User Generated Content) ad creatives.
 
 ## Features
 
-- **Angle Engine**: Generate structured ad angles (hook, problem, solution, CTA) from product seed data using AI
-- **UGC Localizer**: Localize scripts, captions, and on-screen text for multiple locales and platforms
-- **Creative Packs**: Bundle localized content into downloadable ZIP packages
-- **Winner Loop**: Import performance data, identify winning patterns, and generate optimized iterations
+- **Create**: Generate structured ad angles (hook, problem, solution, CTA) from product seed data
+- **Localize**: Localize scripts, captions, and on-screen text for multiple locales and platforms
+- **Build packs**: Bundle localized content into downloadable ZIP packages
+- **Iterate winners**: Import performance data, identify winning patterns, and generate optimized iterations
 
 ## Tech Stack
 
@@ -40,7 +40,7 @@ A production-grade SaaS application for generating, localizing, and optimizing U
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd New-Repo
+cd teruxa
 
 # Install dependencies
 npm install
@@ -63,7 +63,7 @@ npm run dev
 
 ```env
 # Database
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/ugc_localizer?schema=public"
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/teruxa?schema=public"
 
 # Server
 PORT=3001
