@@ -39,7 +39,7 @@ A production-grade SaaS application for generating, localizing, and optimizing U
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/ehudso7/teruxa.git
 cd teruxa
 
 # Install dependencies
