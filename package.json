@@ -1,0 +1,41 @@
+{
+  "name": "ugc-localizer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "UGC Localizer + Angle Engine + Winner Loop MVP",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run dev -w @ugc/backend",
+    "dev:frontend": "npm run dev -w @ugc/frontend",
+    "build": "npm run build -w @ugc/backend && npm run build -w @ugc/frontend",
+    "build:backend": "npm run build -w @ugc/backend",
+    "build:frontend": "npm run build -w @ugc/frontend",
+    "test": "npm run test -w @ugc/backend",
+    "test:e2e": "npm run test:e2e -w @ugc/frontend",
+    "lint": "eslint packages --ext .ts,.tsx",
+    "lint:fix": "eslint packages --ext .ts,.tsx --fix",
+    "format": "prettier --write \"packages/**/*.{ts,tsx,json}\"",
+    "db:migrate": "npm run db:migrate -w @ugc/backend",
+    "db:generate": "npm run db:generate -w @ugc/backend",
+    "db:seed": "npm run db:seed -w @ugc/backend",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "concurrently": "^8.2.2",
+    "eslint": "^8.54.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "prettier": "^3.1.0",
+    "typescript": "^5.3.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  name        String   @db.VarChar(255)
+  description String?
+  seedData    Json     @map("seed_data")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  angleCards    AngleCard[]
+  packs         CreativePack[]
+  importBatches ImportBatch[]
+
+  @@map("projects")
+}
+
+model AngleCard {
+  id                String   @id @default(uuid())
+  projectId         String   @map("project_id")
+  version           Int      @default(1)
+  hook              String
+  problemAgitation  String   @map("problem_agitation")
+  solution          String
+  cta               String
+  visualDirection   String?  @map("visual_direction")
+  audioNotes        String?  @map("audio_notes")
+  estimatedDuration Int?     @map("estimated_duration")
+  status            String   @default("draft") @db.VarChar(50)
+  isWinner          Boolean  @default(false) @map("is_winner")
+  parentAngleId     String?  @map("parent_angle_id")
+  generationNotes   String?  @map("generation_notes")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  project           Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parentAngle       AngleCard?         @relation("AngleIterations", fields: [parentAngleId], references: [id])
+  childAngles       AngleCard[]        @relation("AngleIterations")
+  localizedContents LocalizedContent[]
+  performanceData   PerformanceData[]
+  packAngles        PackAngle[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([isWinner])
+  @@map("angle_cards")
+}
+
+model LocalizedContent {
+  id                  String   @id @default(uuid())
+  angleId             String   @map("angle_id")
+  locale              String   @db.VarChar(10)
+  platform            String   @db.VarChar(50)
+  script              String
+  captions            Json     @default("[]")
+  onScreenText        Json     @default("[]") @map("on_screen_text")
+  culturalNotes       String?  @map("cultural_notes")
+  platformAdjustments String?  @map("platform_adjustments")
+  characterCount      Int?     @map("character_count")
+  wordCount           Int?     @map("word_count")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  angle AngleCard @relation(fields: [angleId], references: [id], onDelete: Cascade)
+
+  @@unique([angleId, locale, platform])
+  @@index([angleId])
+  @@map("localized_contents")
+}
+
+model CreativePack {
+  id            String    @id @default(uuid())
+  name          String    @db.VarChar(255)
+  projectId     String    @map("project_id")
+  downloadUrl   String?   @map("download_url")
+  filePath      String?   @map("file_path")
+  fileSize      BigInt?   @map("file_size")
+  manifest      Json      @default("{}")
+  downloadCount Int       @default(0) @map("download_count")
+  expiresAt     DateTime? @map("expires_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  packAngles PackAngle[]
+
+  @@index([projectId])
+  @@map("creative_packs")
+}
+
+model PackAngle {
+  id       String @id @default(uuid())
+  packId   String @map("pack_id")
+  angleId  String @map("angle_id")
+  locale   String @db.VarChar(10)
+  platform String @db.VarChar(50)
+
+  pack  CreativePack @relation(fields: [packId], references: [id], onDelete: Cascade)
+  angle AngleCard    @relation(fields: [angleId], references: [id], onDelete: Cascade)
+
+  @@unique([packId, angleId, locale, platform])
+  @@index([packId])
+  @@index([angleId])
+  @@map("pack_angles")
+}
+
+model PerformanceData {
+  id             String    @id @default(uuid())
+  angleId        String    @map("angle_id")
+  importBatchId  String    @map("import_batch_id")
+  impressions    BigInt    @default(0)
+  clicks         BigInt    @default(0)
+  conversions    Int       @default(0)
+  spend          Decimal   @default(0) @db.Decimal(12, 2)
+  revenue        Decimal   @default(0) @db.Decimal(12, 2)
+  platform       String?   @db.VarChar(50)
+  locale         String?   @db.VarChar(10)
+  dateRangeStart DateTime? @map("date_range_start") @db.Date
+  dateRangeEnd   DateTime? @map("date_range_end") @db.Date
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  angle       AngleCard   @relation(fields: [angleId], references: [id], onDelete: Cascade)
+  importBatch ImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+
+  @@index([angleId])
+  @@index([importBatchId])
+  @@map("performance_data")
+}
+
+model ImportBatch {
+  id            String    @id @default(uuid())
+  projectId     String    @map("project_id")
+  filename      String    @db.VarChar(255)
+  status        String    @default("processing") @db.VarChar(50)
+  rowsTotal     Int?      @map("rows_total")
+  rowsProcessed Int       @default(0) @map("rows_processed")
+  rowsFailed    Int       @default(0) @map("rows_failed")
+  errorLog      Json      @default("[]") @map("error_log")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  completedAt   DateTime? @map("completed_at")
+
+  project         Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  performanceData PerformanceData[]
+
+  @@index([projectId])
+  @@map("import_batches")
+}
