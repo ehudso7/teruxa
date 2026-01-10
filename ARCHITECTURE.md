@@ -17,7 +17,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              UGC Localizer MVP                               │
+│                              Teruxa UGC Ops                                  │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐  │
@@ -51,7 +51,7 @@
 
 ### Core Modules
 
-#### 1. Angle Engine (`/api/angles`)
+#### 1. Angle Generation (`/api/angles`)
 Generates structured "Angle Cards" from seed input.
 
 ```
@@ -72,7 +72,7 @@ Output: AngleCard[] {
 - Store angles with versioning
 - Support manual editing and regeneration
 
-#### 2. UGC Localizer (`/api/localize`)
+#### 2. Localization (`/api/localize`)
 Localizes scripts/captions/on-screen text per locale/platform.
 
 ```
@@ -112,7 +112,7 @@ Output: CreativePack {
 - Include structured manifest for import
 - Track pack downloads and usage
 
-#### 4. Winner Loop (`/api/performance`)
+#### 4. Performance Iteration (`/api/performance`)
 Imports performance data and generates iterations based on winners.
 
 ```
@@ -139,20 +139,20 @@ Output: NextIteration {
 
 ```
                     ┌──────────────────────────────────────────────────┐
-                    │                   Winner Loop                     │
+                    │               Performance Iteration               │
                     │  ┌─────────────────────────────────────────────┐ │
                     │  │ CSV Import → Analysis → Pattern Detection   │ │
                     │  └────────────────────────┬────────────────────┘ │
                     │                           │                      │
                     │                           ▼                      │
 ┌───────────┐       │  ┌─────────────────────────────────────────────┐ │
-│   Seed    │──────►│  │              Angle Engine                   │ │
+│   Seed    │──────►│  │           Angle Generation                  │ │
 │   Input   │       │  │  Seed → LLM Generation → Angle Cards        │ │
 └───────────┘       │  └────────────────────────┬────────────────────┘ │
                     │                           │                      │
                     │                           ▼                      │
                     │  ┌─────────────────────────────────────────────┐ │
-                    │  │             UGC Localizer                    │ │
+                    │  │             Localization                     │ │
                     │  │  Angles → Translation → Platform Adaptation │ │
                     │  └────────────────────────┬────────────────────┘ │
                     │                           │                      │
