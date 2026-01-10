@@ -37,16 +37,13 @@ export class PackController {
   ) {
     const { page, limit } = req.query;
 
-    const result = await packService.getProjectPacks(req.params.projectId, {
-      page: page ? parseInt(page, 10) : undefined,
-      limit: limit ? parseInt(limit, 10) : undefined,
-    });
+    const packs = await packService.getProjectPacks(req.params.projectId);
 
     res.json({
       success: true,
-      data: result.packs,
+      data: packs,
       meta: {
-        total: result.total,
+        total: packs.length,
         page: page ? parseInt(page, 10) : 1,
         limit: limit ? parseInt(limit, 10) : 20,
       },

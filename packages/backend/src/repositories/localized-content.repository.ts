@@ -1,6 +1,7 @@
 import { prisma } from './prisma-client.js';
 import type { LocalizedContent, Prisma } from '@prisma/client';
 import type { Locale, Platform, Caption, OnScreenText } from '../types/index.js';
+import { toInputJson } from '../utils/prismaJson.js';
 
 export interface CreateLocalizedContentData {
   angleId: string;
@@ -29,8 +30,8 @@ export class LocalizedContentRepository {
         locale: data.locale,
         platform: data.platform,
         script: data.script,
-        captions: data.captions as Prisma.InputJsonValue,
-        onScreenText: data.onScreenText as Prisma.InputJsonValue,
+        captions: toInputJson(data.captions),
+        onScreenText: toInputJson(data.onScreenText),
         culturalNotes: data.culturalNotes,
         platformAdjustments: data.platformAdjustments,
         characterCount: data.script.length,
@@ -46,8 +47,8 @@ export class LocalizedContentRepository {
         locale: d.locale,
         platform: d.platform,
         script: d.script,
-        captions: d.captions as Prisma.InputJsonValue,
-        onScreenText: d.onScreenText as Prisma.InputJsonValue,
+        captions: toInputJson(d.captions),
+        onScreenText: toInputJson(d.onScreenText),
         culturalNotes: d.culturalNotes,
         platformAdjustments: d.platformAdjustments,
         characterCount: d.script.length,
@@ -72,8 +73,8 @@ export class LocalizedContentRepository {
         locale: data.locale,
         platform: data.platform,
         script: data.script,
-        captions: data.captions as Prisma.InputJsonValue,
-        onScreenText: data.onScreenText as Prisma.InputJsonValue,
+        captions: toInputJson(data.captions),
+        onScreenText: toInputJson(data.onScreenText),
         culturalNotes: data.culturalNotes,
         platformAdjustments: data.platformAdjustments,
         characterCount: data.script.length,
@@ -81,8 +82,8 @@ export class LocalizedContentRepository {
       },
       update: {
         script: data.script,
-        captions: data.captions as Prisma.InputJsonValue,
-        onScreenText: data.onScreenText as Prisma.InputJsonValue,
+        captions: toInputJson(data.captions),
+        onScreenText: toInputJson(data.onScreenText),
         culturalNotes: data.culturalNotes,
         platformAdjustments: data.platformAdjustments,
         characterCount: data.script.length,
@@ -138,10 +139,10 @@ export class LocalizedContentRepository {
         wordCount: data.script.split(/\s+/).filter(Boolean).length,
       }),
       ...(data.captions !== undefined && {
-        captions: data.captions as Prisma.InputJsonValue,
+        captions: toInputJson(data.captions),
       }),
       ...(data.onScreenText !== undefined && {
-        onScreenText: data.onScreenText as Prisma.InputJsonValue,
+        onScreenText: toInputJson(data.onScreenText),
       }),
       ...(data.culturalNotes !== undefined && {
         culturalNotes: data.culturalNotes,

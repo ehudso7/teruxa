@@ -1,9 +1,10 @@
 import { projectRepository, angleRepository } from '../repositories/index.js';
 import { aiService } from './ai.service.js';
 import { createChildLogger } from '../utils/logger.js';
-import { NotFoundError, ValidationError } from '../types/index.js';
-import type { SeedData, AngleStatus } from '../types/index.js';
+import { NotFoundError } from '../types/index.js';
+import type { AngleStatus } from '../types/index.js';
 import type { AngleCard } from '@prisma/client';
+import { parseSeedData } from '../schemas/seedData.schema.js';
 
 const logger = createChildLogger('angle-service');
 
@@ -32,39 +33,53 @@ class AngleService {
       throw new NotFoundError('Project');
     }
 
-    const seedData = project.seedData as SeedData;
+    const seedData = parseSeedData(project.seedData);
     logger.info({ projectId, count }, 'Generating angles for project');
 
     // Generate angles via AI service
     const generatedAngles = await aiService.generateAngles(seedData, count);
 
-    // Store angles in database
-    const createdAngles: AngleCard[] = [];
-    for (const angle of generatedAngles) {
-      const created = await angleRepository.create({
+    // Save angles to database - createMany returns count, we need to fetch them
+    const createdCount = await angleRepository.createMany(
+      generatedAngles.map((angleData) => ({
         projectId,
-        hook: angle.hook,
-        problemAgitation: angle.problemAgitation,
-        solution: angle.solution,
-        cta: angle.cta,
-        visualDirection: angle.visualDirection,
-        audioNotes: angle.audioNotes,
-        estimatedDuration: angle.estimatedDuration,
-        generationNotes: angle.generationNotes,
-      });
-      createdAngles.push(created);
-    }
+        ...angleData,
+      }))
+    );
 
-    logger.info({ projectId, created: createdAngles.length }, 'Angles generated successfully');
+    // Fetch the created angles
+    const { angles } = await angleRepository.findByProjectId(projectId, {
+      limit: createdCount,
+    });
+
+    logger.info({ projectId, anglesCreated: createdCount }, 'Angles generated successfully');
 
     return {
       projectId,
-      angles: createdAngles,
-      count: createdAngles.length,
+      angles,
+      count: createdCount,
     };
   }
 
-  async getAngle(id: string) {
+  async getProjectAngles(
+    projectId: string,
+    filters?: {
+      status?: AngleStatus;
+      isWinner?: boolean;
+      page?: number;
+      limit?: number;
+    }
+  ): Promise<{ angles: AngleCard[]; total: number }> {
+    // Verify project exists
+    const exists = await projectRepository.exists(projectId);
+    if (!exists) {
+      throw new NotFoundError('Project');
+    }
+
+    return angleRepository.findByProjectId(projectId, filters);
+  }
+
+  async getAngle(id: string): Promise<AngleCard> {
     const angle = await angleRepository.findById(id);
     if (!angle) {
       throw new NotFoundError('Angle');
@@ -72,115 +87,93 @@ class AngleService {
     return angle;
   }
 
-  async getProjectAngles(
-    projectId: string,
-    options?: {
-      status?: AngleStatus;
-      isWinner?: boolean;
-      page?: number;
-      limit?: number;
-    }
-  ) {
-    // Verify project exists
-    const projectExists = await projectRepository.exists(projectId);
-    if (!projectExists) {
-      throw new NotFoundError('Project');
-    }
-
-    return angleRepository.findByProjectId(projectId, options);
+  async getAngleById(id: string): Promise<AngleCard> {
+    return this.getAngle(id);
   }
 
-  async updateAngle(id: string, data: UpdateAngleInput) {
-    const exists = await angleRepository.exists(id);
-    if (!exists) {
+  async updateAngle(id: string, data: UpdateAngleInput): Promise<AngleCard> {
+    const existing = await angleRepository.findById(id);
+    if (!existing) {
       throw new NotFoundError('Angle');
     }
 
     return angleRepository.update(id, data);
   }
 
-  async updateAngleStatus(id: string, status: AngleStatus) {
-    const angle = await angleRepository.findById(id);
-    if (!angle) {
+  async updateAngleStatus(id: string, status: AngleStatus): Promise<AngleCard> {
+    const existing = await angleRepository.findById(id);
+    if (!existing) {
       throw new NotFoundError('Angle');
-    }
-
-    // Validate status transitions
-    const validTransitions: Record<string, AngleStatus[]> = {
-      draft: ['approved', 'rejected', 'archived'],
-      approved: ['archived', 'rejected'],
-      rejected: ['draft', 'archived'],
-      archived: ['draft'],
-    };
-
-    const currentStatus = angle.status as AngleStatus;
-    if (!validTransitions[currentStatus]?.includes(status)) {
-      throw new ValidationError(
-        `Cannot transition from ${currentStatus} to ${status}`
-      );
     }
 
     return angleRepository.update(id, { status });
   }
 
-  async setWinner(id: string, isWinner: boolean) {
-    const exists = await angleRepository.exists(id);
-    if (!exists) {
-      throw new NotFoundError('Angle');
-    }
-
-    return angleRepository.setWinner(id, isWinner);
-  }
-
-  async deleteAngle(id: string) {
-    const exists = await angleRepository.exists(id);
-    if (!exists) {
+  async deleteAngle(id: string): Promise<void> {
+    const existing = await angleRepository.findById(id);
+    if (!existing) {
       throw new NotFoundError('Angle');
     }
 
     await angleRepository.delete(id);
-    logger.info({ angleId: id }, 'Angle deleted');
   }
 
-  async regenerateAngle(id: string) {
-    const angle = await angleRepository.findById(id);
+  async setWinner(angleId: string): Promise<AngleCard> {
+    return this.markAsWinner(angleId);
+  }
+
+  async markAsWinner(angleId: string): Promise<AngleCard> {
+    const angle = await angleRepository.findById(angleId);
     if (!angle) {
       throw new NotFoundError('Angle');
     }
 
+    return angleRepository.update(angleId, {
+      isWinner: true,
+      status: 'approved',
+    });
+  }
+
+  async getWinningAngles(projectId: string): Promise<AngleCard[]> {
+    const exists = await projectRepository.exists(projectId);
+    if (!exists) {
+      throw new NotFoundError('Project');
+    }
+
+    const { angles } = await angleRepository.findByProjectId(projectId, {
+      isWinner: true,
+    });
+
+    return angles;
+  }
+
+  async regenerateAngle(angleId: string): Promise<AngleCard> {
+    // Get existing angle to get project and current content
+    const angle = await angleRepository.findById(angleId);
+    if (!angle) {
+      throw new NotFoundError('Angle');
+    }
+
+    // Get project for seed data
     const project = await projectRepository.findById(angle.projectId);
     if (!project) {
       throw new NotFoundError('Project');
     }
 
-    const seedData = project.seedData as SeedData;
+    const seedData = parseSeedData(project.seedData);
+    logger.info({ angleId }, 'Regenerating angle');
 
     // Generate a single new angle
-    const [generatedAngle] = await aiService.generateAngles(seedData, 1);
-    if (!generatedAngle) {
-      throw new Error('Failed to generate replacement angle');
-    }
+    const [newAngleData] = await aiService.generateAngles(seedData, 1);
 
-    // Create new angle with reference to old one
-    const newAngle = await angleRepository.create({
-      projectId: angle.projectId,
-      hook: generatedAngle.hook,
-      problemAgitation: generatedAngle.problemAgitation,
-      solution: generatedAngle.solution,
-      cta: generatedAngle.cta,
-      visualDirection: generatedAngle.visualDirection,
-      audioNotes: generatedAngle.audioNotes,
-      estimatedDuration: generatedAngle.estimatedDuration,
-      parentAngleId: id,
-      generationNotes: `Regenerated from angle ${id}. ${generatedAngle.generationNotes ?? ''}`,
+    // Update the existing angle with new content
+    const updatedAngle = await angleRepository.update(angleId, {
+      ...newAngleData,
+      status: 'draft', // Reset to draft when regenerated
     });
 
-    // Archive the old angle
-    await angleRepository.update(id, { status: 'archived' });
-
-    logger.info({ oldAngleId: id, newAngleId: newAngle.id }, 'Angle regenerated');
-
-    return newAngle;
+    logger.info({ angleId }, 'Angle regenerated successfully');
+    return updatedAngle;
   }
 }
 

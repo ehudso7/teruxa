@@ -3,7 +3,8 @@ import { aiService } from './ai.service.js';
 import { createChildLogger } from '../utils/logger.js';
 import { NotFoundError } from '../types/index.js';
 import { PLATFORM_LIMITS, validateContentLength } from '../utils/platform-limits.js';
-import type { Locale, Platform, SeedData, GeneratedAngle, Caption, OnScreenText } from '../types/index.js';
+import { parseSeedData } from '../schemas/seedData.schema.js';
+import type { Locale, Platform, GeneratedAngle, Caption, OnScreenText } from '../types/index.js';
 import type { LocalizedContent } from '@prisma/client';
 
 const logger = createChildLogger('localization-service');
@@ -40,7 +41,7 @@ class LocalizationService {
       throw new NotFoundError('Project');
     }
 
-    const seedData = project.seedData as SeedData;
+    const seedData = parseSeedData(project.seedData);
     const angleData: GeneratedAngle = {
       hook: angle.hook,
       problemAgitation: angle.problemAgitation,
@@ -201,7 +202,7 @@ class LocalizationService {
       throw new NotFoundError('Project');
     }
 
-    const seedData = project.seedData as SeedData;
+    const seedData = parseSeedData(project.seedData);
     const angleData: GeneratedAngle = {
       hook: angle.hook,
       problemAgitation: angle.problemAgitation,

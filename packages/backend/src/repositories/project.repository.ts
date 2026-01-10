@@ -1,6 +1,7 @@
 import { prisma } from './prisma-client.js';
-import type { Project, Prisma } from '@prisma/client';
+import type { Project } from '@prisma/client';
 import type { SeedData } from '../types/index.js';
+import { toInputJson } from '../utils/prismaJson.js';
 
 export interface CreateProjectData {
   name: string;
@@ -33,7 +34,7 @@ export class ProjectRepository {
       data: {
         name: data.name,
         description: data.description,
-        seedData: data.seedData as Prisma.InputJsonValue,
+        seedData: toInputJson(data.seedData),
       },
     });
   }
@@ -86,7 +87,7 @@ export class ProjectRepository {
       data: {
         ...(data.name && { name: data.name }),
         ...(data.description !== undefined && { description: data.description }),
-        ...(data.seedData && { seedData: data.seedData as Prisma.InputJsonValue }),
+        ...(data.seedData && { seedData: toInputJson(data.seedData) }),
       },
     });
   }

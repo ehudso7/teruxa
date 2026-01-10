@@ -11,7 +11,7 @@ echo "🔧 Setting up test environment..."
 if [ ! -f packages/backend/.env ]; then
   echo "📝 Creating backend .env file..."
   cat > packages/backend/.env << EOF
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ugc_test?schema=public
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public
 PORT=3001
 NODE_ENV=test
 AI_MOCK_MODE=true
