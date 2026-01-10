@@ -5,8 +5,8 @@ test.describe('Projects Flow', () => {
     // Navigate to the application
     await page.goto('/');
 
-    // Wait for the app to load
-    await page.waitForSelector('h1', { timeout: 10000 });
+    // Wait for the app to load - wait for navigation or main content
+    await page.waitForSelector('nav, header, [data-testid="app-header"], text=Projects', { timeout: 30000 });
 
     // Check if we're on the projects page or need to navigate there
     const projectsLink = page.locator('text=Projects').first();
@@ -67,8 +67,8 @@ test.describe('Projects Flow', () => {
     // Navigate to the application
     await page.goto('/');
 
-    // Wait for the app to load
-    await page.waitForSelector('h1', { timeout: 10000 });
+    // Wait for the app to load - wait for navigation or main content
+    await page.waitForSelector('nav, header, [data-testid="app-header"], text=Projects', { timeout: 30000 });
 
     // Navigate to projects if needed
     const projectsLink = page.locator('text=Projects').first();

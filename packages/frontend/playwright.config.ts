@@ -24,7 +24,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: process.env.VITE_API_URL || 'http://localhost:5173',
+    baseURL: 'http://127.0.0.1:5173',
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
@@ -52,26 +52,34 @@ export default defineConfig({
   /* Run your local dev server before starting the tests */
   webServer: [
     {
-      command: 'npm run dev:backend',
-      port: 3001,
+      command: 'npm run db:generate && npx prisma db push --skip-generate && npm run dev',
+      url: 'http://127.0.0.1:3001/api/health',
       timeout: 120 * 1000,
       reuseExistingServer: !process.env.CI,
-      cwd: '../..',
+      cwd: '../backend',
       env: {
         ...process.env,
         AI_MOCK_MODE: 'true',
         NODE_ENV: 'test',
+        PORT: '3001',
+        DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public',
       },
+      stdout: 'pipe',
+      stderr: 'pipe',
     },
     {
-      command: 'npm run dev',
-      port: 5173,
+      command: 'npm run dev -- --port 5173',
+      url: 'http://127.0.0.1:5173',
       timeout: 120 * 1000,
       reuseExistingServer: !process.env.CI,
+      cwd: '../frontend',
       env: {
         ...process.env,
         NODE_ENV: 'test',
+        VITE_API_URL: 'http://127.0.0.1:3001',
       },
+      stdout: 'pipe',
+      stderr: 'pipe',
     },
   ],
 });

@@ -44,6 +44,11 @@ app.use(express.urlencoded({ extended: true }));
 // Request logging
 app.use(requestLogger);
 
+// Health check endpoint (no auth, minimal overhead)
+app.get('/api/health', (_req, res) => {
+  res.json({ ok: true });
+});
+
 // API routes
 app.use('/api', apiRoutes);
 
