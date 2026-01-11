@@ -1,0 +1,234 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  NODE_VERSION: '20'
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    outputs:
+      backend-image: ${{ steps.image.outputs.backend-image }}
+      frontend-image: ${{ steps.image.outputs.frontend-image }}
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Generate version
+      id: version
+      run: |
+        VERSION="${{ github.sha }}-$(date +%Y%m%d%H%M%S)"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "VERSION: $VERSION"
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build and push Backend Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./packages/backend/Dockerfile
+        push: true
+        tags: |
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:latest
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:${{ steps.version.outputs.version }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          BUILD_VERSION=${{ steps.version.outputs.version }}
+
+    - name: Build and push Frontend Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./packages/frontend/Dockerfile
+        push: true
+        tags: |
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:latest
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:${{ steps.version.outputs.version }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          BUILD_VERSION=${{ steps.version.outputs.version }}
+          VITE_API_URL=${{ secrets.API_URL }}
+
+    - name: Output image tags
+      id: image
+      run: |
+        echo "backend-image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT
+        echo "frontend-image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT
+
+  deploy-railway:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Railway CLI
+      run: npm install -g @railway/cli
+
+    - name: Deploy to Railway
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      run: |
+        railway up --detach --environment production \
+          -v BACKEND_IMAGE=${{ needs.build-and-push.outputs.backend-image }} \
+          -v FRONTEND_IMAGE=${{ needs.build-and-push.outputs.frontend-image }} \
+          -v VERSION=${{ needs.build-and-push.outputs.version }}
+
+    - name: Wait for deployment
+      run: sleep 30
+
+    - name: Health check
+      run: |
+        BACKEND_URL="${{ secrets.BACKEND_URL }}"
+        FRONTEND_URL="${{ secrets.FRONTEND_URL }}"
+
+        echo "Checking backend health at $BACKEND_URL/api/health"
+        curl -f "$BACKEND_URL/api/health" || exit 1
+
+        echo "Checking frontend at $FRONTEND_URL"
+        curl -f "$FRONTEND_URL" || exit 1
+
+    - name: Create deployment record
+      uses: actions/github-script@v7
+      with:
+        script: |
+          await github.rest.repos.createDeployment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: context.sha,
+            environment: 'production',
+            description: 'Deployed version ${{ needs.build-and-push.outputs.version }}',
+            auto_merge: false,
+            required_contexts: [],
+            payload: {
+              version: '${{ needs.build-and-push.outputs.version }}',
+              backend_image: '${{ needs.build-and-push.outputs.backend-image }}',
+              frontend_image: '${{ needs.build-and-push.outputs.frontend-image }}'
+            }
+          });
+
+  deploy-vercel:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'staging'
+    environment: staging
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy to Vercel
+      uses: amondnet/vercel-action@v25
+      with:
+        vercel-token: ${{ secrets.VERCEL_TOKEN }}
+        vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+        vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+        vercel-args: '--prod'
+
+  smoke-tests:
+    needs: [deploy-railway]
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install Playwright
+      run: npx playwright install --with-deps chromium
+
+    - name: Run smoke tests
+      env:
+        FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+        BACKEND_URL: ${{ secrets.BACKEND_URL }}
+      run: |
+        cd packages/frontend
+        npm run test:smoke:production
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: smoke-test-results
+        path: packages/frontend/test-results/
+        retention-days: 7
+
+  notify:
+    needs: [deploy-railway, smoke-tests]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+    - name: Send Slack notification
+      if: ${{ secrets.SLACK_WEBHOOK_URL }}
+      uses: slackapi/slack-github-action@v1.24.0
+      with:
+        payload: |
+          {
+            "text": "Deployment Status: ${{ needs.smoke-tests.result }}",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Deployment to Production*\n*Status:* ${{ needs.smoke-tests.result }}\n*Version:* ${{ needs.build-and-push.outputs.version }}\n*Triggered by:* ${{ github.actor }}"
+                }
+              }
+            ]
+          }
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

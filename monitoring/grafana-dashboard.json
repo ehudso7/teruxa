@@ -1,0 +1,297 @@
+{
+  "dashboard": {
+    "title": "Teruxa Application Dashboard",
+    "tags": ["teruxa", "production"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Request Rate",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m])",
+            "legendFormat": "{{method}} {{path}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Error Rate",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "rate(http_request_errors_total[5m])",
+            "legendFormat": "{{class}} - {{method}} {{path}}",
+            "refId": "A"
+          }
+        ],
+        "alert": {
+          "name": "High Error Rate",
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [0.05],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": ["A", "5m", "now"]
+              },
+              "reducer": {
+                "params": [],
+                "type": "avg"
+              },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "60s",
+          "handler": 1,
+          "name": "High Error Rate Alert",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 3,
+        "title": "Response Time (p95)",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "p95",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "p99",
+            "refId": "B"
+          }
+        ],
+        "alert": {
+          "name": "Slow Response Time",
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [2],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": ["A", "5m", "now"]
+              },
+              "reducer": {
+                "params": [],
+                "type": "avg"
+              },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "60s",
+          "handler": 1,
+          "name": "Slow Response Alert",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 4,
+        "title": "Active Connections",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "active_connections",
+            "legendFormat": "Connections",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Memory Usage",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "nodejs_memory_usage_bytes{type=\"heapUsed\"}",
+            "legendFormat": "Heap Used",
+            "refId": "A"
+          },
+          {
+            "expr": "nodejs_memory_usage_bytes{type=\"heapTotal\"}",
+            "legendFormat": "Heap Total",
+            "refId": "B"
+          },
+          {
+            "expr": "nodejs_memory_usage_bytes{type=\"rss\"}",
+            "legendFormat": "RSS",
+            "refId": "C"
+          }
+        ],
+        "alert": {
+          "name": "High Memory Usage",
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [512000000],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": ["C", "5m", "now"]
+              },
+              "reducer": {
+                "params": [],
+                "type": "avg"
+              },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "60s",
+          "handler": 1,
+          "name": "High Memory Alert",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 6,
+        "title": "CPU Usage",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "rate(nodejs_cpu_usage_seconds{type=\"user\"}[5m])",
+            "legendFormat": "User CPU",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(nodejs_cpu_usage_seconds{type=\"system\"}[5m])",
+            "legendFormat": "System CPU",
+            "refId": "B"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Database Connection Pool",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 24, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "pg_pool_size",
+            "legendFormat": "Pool Size",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Database Query Duration",
+        "type": "graph",
+        "gridPos": { "x": 6, "y": 24, "w": 18, "h": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(pg_query_duration_seconds_bucket[5m])) by (le, query))",
+            "legendFormat": "{{query}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Business Metrics - Projects Created",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 32, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "increase(business_projects_created_total[24h])",
+            "legendFormat": "Projects (24h)",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Business Metrics - Active Users",
+        "type": "stat",
+        "gridPos": { "x": 6, "y": 32, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "business_active_users",
+            "legendFormat": "Active Users",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "AI API Usage",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 32, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "rate(openai_api_requests_total[5m])",
+            "legendFormat": "{{endpoint}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "title": "AI API Costs",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 40, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "increase(openai_api_cost_dollars[24h])",
+            "legendFormat": "Cost (24h)",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 13,
+        "title": "Frontend Performance",
+        "type": "table",
+        "gridPos": { "x": 6, "y": 40, "w": 18, "h": 8 },
+        "targets": [
+          {
+            "expr": "web_vitals_lcp",
+            "legendFormat": "LCP",
+            "refId": "A"
+          },
+          {
+            "expr": "web_vitals_fid",
+            "legendFormat": "FID",
+            "refId": "B"
+          },
+          {
+            "expr": "web_vitals_cls",
+            "legendFormat": "CLS",
+            "refId": "C"
+          }
+        ]
+      }
+    ],
+    "refresh": "30s",
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    }
+  }
+}

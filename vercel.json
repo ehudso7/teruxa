@@ -1,0 +1,33 @@
+{
+  "framework": null,
+  "buildCommand": "npm run build:all",
+  "outputDirectory": "packages/frontend/dist",
+  "installCommand": "npm ci",
+  "devCommand": "npm run dev",
+  "functions": {
+    "packages/backend/dist/index.js": {
+      "runtime": "@vercel/node@3.0.0",
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/packages/backend/dist/index.js"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "build": {
+    "env": {
+      "VITE_API_URL": "@vite_api_url",
+      "DATABASE_URL": "@database_url",
+      "OPENAI_API_KEY": "@openai_api_key"
+    }
+  }
+}
