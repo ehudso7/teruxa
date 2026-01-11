@@ -7,6 +7,7 @@ import { parseSeedData } from '../schemas/seedData.schema.js';
 import type { Locale, Platform, GeneratedAngle } from '../types/index.js';
 import type { LocalizedContent } from '@prisma/client';
 import type { UpdateLocalizedContentInput } from '../validators/index.js';
+import type { UpdateLocalizedContentData } from '../repositories/localized-content.repository.js';
 
 const logger = createChildLogger('localization-service');
 
@@ -169,7 +170,8 @@ class LocalizationService {
       }
     }
 
-    return localizedContentRepository.update(id, data);
+    // Type assertion is safe because zod validation ensures data is valid
+    return localizedContentRepository.update(id, data as UpdateLocalizedContentData);
   }
 
   async deleteLocalizedContent(id: string) {

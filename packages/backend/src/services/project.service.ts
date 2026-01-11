@@ -1,11 +1,13 @@
 import { projectRepository } from '../repositories/index.js';
 import { createChildLogger } from '../utils/logger.js';
 import { NotFoundError } from '../types/index.js';
+import type { SeedData } from '../types/index.js';
 import type { Project } from '@prisma/client';
 import type {
   CreateProjectInput,
   UpdateProjectInput,
 } from '../validators/index.js';
+import type { UpdateProjectData } from '../repositories/project.repository.js';
 
 const logger = createChildLogger('project-service');
 
@@ -14,10 +16,11 @@ export type { CreateProjectInput, UpdateProjectInput };
 
 class ProjectService {
   async createProject(input: CreateProjectInput): Promise<Project> {
+    // Type assertion is safe because zod validation ensures seedData is valid
     const project = await projectRepository.create({
       name: input.name,
       description: input.description,
-      seedData: input.seedData,
+      seedData: input.seedData as SeedData,
     });
 
     logger.info({ projectId: project.id, name: project.name }, 'Project created');
@@ -43,7 +46,8 @@ class ProjectService {
       throw new NotFoundError('Project');
     }
 
-    const updated = await projectRepository.update(id, input);
+    // Type assertion is safe because zod validation ensures data is valid
+    const updated = await projectRepository.update(id, input as UpdateProjectData);
     logger.info({ projectId: id }, 'Project updated');
 
     return updated;

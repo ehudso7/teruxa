@@ -13,7 +13,7 @@ const backendDir = path.join(__dirname, '..', 'packages', 'backend');
 // Set up environment
 const env = {
   ...process.env,
-  DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5433/teruxa_test?schema=public',
+  DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public',
 };
 
 console.log('🗄️  Preparing database for E2E tests...');
