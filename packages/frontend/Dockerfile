@@ -4,9 +4,10 @@ FROM node:20.18.0-alpine3.20 AS builder
 
 WORKDIR /app
 
-# Copy package files from root and frontend
+# Copy package files from root and all workspaces (npm workspaces requires all package.json files)
 COPY package*.json ./
 COPY packages/frontend/package*.json ./packages/frontend/
+COPY packages/backend/package*.json ./packages/backend/
 
 # Install all dependencies (needed for build)
 # Note: Rollup native binaries are declared in optionalDependencies

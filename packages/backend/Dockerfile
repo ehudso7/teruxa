@@ -7,9 +7,10 @@ RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
-# Copy package files from root and backend
+# Copy package files from root and all workspaces (npm workspaces requires all package.json files)
 COPY package*.json ./
 COPY packages/backend/package*.json ./packages/backend/
+COPY packages/frontend/package*.json ./packages/frontend/
 
 # Copy root tsconfig.json (required for backend tsconfig extends)
 COPY tsconfig.json ./
@@ -39,9 +40,10 @@ RUN addgroup -g 1001 -S nodejs && \
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files (all workspaces required for npm workspaces)
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/packages/backend/package*.json ./packages/backend/
+COPY --from=builder /app/packages/frontend/package*.json ./packages/frontend/
 
 # Install production dependencies only
 ENV NODE_ENV=production
