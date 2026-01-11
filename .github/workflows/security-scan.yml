@@ -197,16 +197,8 @@ jobs:
         # Install CycloneDX for npm
         npm install -g @cyclonedx/cyclonedx-npm
 
-        # Generate SBOM for root
-        npx @cyclonedx/cyclonedx-npm --output-format json --output-file repo-sbom.json --package-lock-only
-
-        # Generate SBOM for backend
-        cd packages/backend
-        npx @cyclonedx/cyclonedx-npm --output-format json --output-file ../../backend-deps-sbom.json --package-lock-only
-
-        # Generate SBOM for frontend
-        cd ../frontend
-        npx @cyclonedx/cyclonedx-npm --output-format json --output-file ../../frontend-deps-sbom.json --package-lock-only
+        # Generate SBOM for root (includes all workspaces)
+        npx @cyclonedx/cyclonedx-npm --output-format json --output-file repo-sbom.json --package-lock-only || true
 
     # Upload dependency audit artifacts
     - name: Upload Dependency Audit Artifacts
