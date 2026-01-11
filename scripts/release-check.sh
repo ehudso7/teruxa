@@ -41,10 +41,10 @@ cleanup() {
     log_info "Cleaning up Docker containers..."
     docker-compose -f docker-compose.release.yml down -v 2>/dev/null || true
 
-    # Kill any processes on the ports we use
-    lsof -ti:3001 | xargs kill -9 2>/dev/null || true
-    lsof -ti:80 | xargs kill -9 2>/dev/null || true
-    lsof -ti:5432 | xargs kill -9 2>/dev/null || true
+    # Kill any processes on the ports we use (using xargs -r to handle empty input)
+    lsof -ti:3001 2>/dev/null | xargs -r kill -9 2>/dev/null || true
+    lsof -ti:80 2>/dev/null | xargs -r kill -9 2>/dev/null || true
+    lsof -ti:5432 2>/dev/null | xargs -r kill -9 2>/dev/null || true
 }
 
 # Trap cleanup on exit
@@ -167,7 +167,11 @@ main() {
 
     # Step 2: Clean up any existing containers
     log_info "Step 2: Cleaning up any existing containers..."
-    cleanup
+    docker-compose -f docker-compose.release.yml down -v 2>/dev/null || true
+    # Kill any processes on the ports we use (using xargs -r to handle empty input)
+    lsof -ti:3001 2>/dev/null | xargs -r kill -9 2>/dev/null || true
+    lsof -ti:80 2>/dev/null | xargs -r kill -9 2>/dev/null || true
+    lsof -ti:5432 2>/dev/null | xargs -r kill -9 2>/dev/null || true
     echo
 
     # Step 3: Build Docker images
