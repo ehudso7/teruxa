@@ -41,10 +41,16 @@ cleanup() {
     log_info "Cleaning up Docker containers..."
     docker-compose -f docker-compose.release.yml down -v 2>/dev/null || true
 
-    # Kill any processes on the ports we use (using xargs -r to handle empty input)
-    lsof -ti:3001 2>/dev/null | xargs -r kill -9 2>/dev/null || true
-    lsof -ti:80 2>/dev/null | xargs -r kill -9 2>/dev/null || true
-    lsof -ti:5432 2>/dev/null | xargs -r kill -9 2>/dev/null || true
+    # Kill any processes on the ports we use (portable solution)
+    if [ -n "$(lsof -ti:3001 2>/dev/null)" ]; then
+        lsof -ti:3001 2>/dev/null | xargs kill -9 2>/dev/null || true
+    fi
+    if [ -n "$(lsof -ti:80 2>/dev/null)" ]; then
+        lsof -ti:80 2>/dev/null | xargs kill -9 2>/dev/null || true
+    fi
+    if [ -n "$(lsof -ti:5432 2>/dev/null)" ]; then
+        lsof -ti:5432 2>/dev/null | xargs kill -9 2>/dev/null || true
+    fi
 }
 
 # Trap cleanup on exit
@@ -168,10 +174,16 @@ main() {
     # Step 2: Clean up any existing containers
     log_info "Step 2: Cleaning up any existing containers..."
     docker-compose -f docker-compose.release.yml down -v 2>/dev/null || true
-    # Kill any processes on the ports we use (using xargs -r to handle empty input)
-    lsof -ti:3001 2>/dev/null | xargs -r kill -9 2>/dev/null || true
-    lsof -ti:80 2>/dev/null | xargs -r kill -9 2>/dev/null || true
-    lsof -ti:5432 2>/dev/null | xargs -r kill -9 2>/dev/null || true
+    # Kill any processes on the ports we use (portable solution)
+    if [ -n "$(lsof -ti:3001 2>/dev/null)" ]; then
+        lsof -ti:3001 2>/dev/null | xargs kill -9 2>/dev/null || true
+    fi
+    if [ -n "$(lsof -ti:80 2>/dev/null)" ]; then
+        lsof -ti:80 2>/dev/null | xargs kill -9 2>/dev/null || true
+    fi
+    if [ -n "$(lsof -ti:5432 2>/dev/null)" ]; then
+        lsof -ti:5432 2>/dev/null | xargs kill -9 2>/dev/null || true
+    fi
     echo
 
     # Step 3: Build Docker images
