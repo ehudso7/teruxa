@@ -43,6 +43,7 @@ jobs:
         load: true
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        # Note: provenance and SBOM generation happens via Trivy below
 
     # Build frontend image with metadata
     - name: Build Frontend Docker image
@@ -54,6 +55,7 @@ jobs:
         load: true
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        # Note: provenance and SBOM generation happens via Trivy below
 
     # Run Trivy vulnerability scanner on backend
     - name: Run Trivy vulnerability scanner - Backend
