@@ -51,6 +51,12 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    # Step A1: Generate Prisma Client (required for type checking)
+    - name: Generate Prisma Client
+      run: npm run db:generate
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public
+
     # Step B: Type checking
     - name: Run type checking
       run: npm run typecheck:all
@@ -80,11 +86,6 @@ jobs:
         AI_MOCK_MODE=true
         CORS_ORIGIN=http://localhost:5173
         EOF
-
-    - name: Generate Prisma Client
-      run: npm run db:generate
-      env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public
 
     - name: Run database migrations
       run: npm run db:push
