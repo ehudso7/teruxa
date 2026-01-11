@@ -45,6 +45,17 @@ export interface PerformanceMetricsResult {
   roas: number | null;
 }
 
+// Type for raw SQL query result
+interface RawMetricsRow {
+  angle_id: string;
+  hook: string;
+  total_impressions: bigint;
+  total_clicks: bigint;
+  total_conversions: bigint;
+  total_spend: Decimal;
+  total_revenue: Decimal;
+}
+
 export class PerformanceRepository {
   // Import Batch methods
   async createImportBatch(data: CreateImportBatchData): Promise<ImportBatch> {
@@ -156,17 +167,7 @@ export class PerformanceRepository {
 
   async getAggregatedMetricsByProject(projectId: string): Promise<PerformanceMetricsResult[]> {
     // Raw query for aggregation with calculated metrics
-    const results = await prisma.$queryRaw<
-      Array<{
-        angle_id: string;
-        hook: string;
-        total_impressions: bigint;
-        total_clicks: bigint;
-        total_conversions: bigint;
-        total_spend: Decimal;
-        total_revenue: Decimal;
-      }>
-    >`
+    const results = await prisma.$queryRaw<RawMetricsRow[]>`
       SELECT
         ac.id as angle_id,
         ac.hook,
@@ -182,7 +183,7 @@ export class PerformanceRepository {
       ORDER BY total_impressions DESC
     `;
 
-    return results.map((r) => {
+    return results.map((r: RawMetricsRow) => {
       const impressions = Number(r.total_impressions);
       const clicks = Number(r.total_clicks);
       const conversions = Number(r.total_conversions);
