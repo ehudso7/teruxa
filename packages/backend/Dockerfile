@@ -11,7 +11,7 @@ COPY package*.json ./
 COPY packages/backend/package*.json ./packages/backend/
 
 # Install all dependencies (needed for build)
-RUN npm ci
+RUN npm ci && npm rebuild
 
 # Copy backend source code
 COPY packages/backend ./packages/backend
@@ -41,7 +41,7 @@ COPY --from=builder /app/packages/backend/package*.json ./packages/backend/
 
 # Install production dependencies only
 ENV NODE_ENV=production
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev && npm rebuild
 
 # Copy built application and Prisma files
 COPY --from=builder --chown=nodejs:nodejs /app/packages/backend/dist ./packages/backend/dist

@@ -8,7 +8,9 @@ COPY package*.json ./
 COPY packages/frontend/package*.json ./packages/frontend/
 
 # Install all dependencies (needed for build)
-RUN npm ci
+RUN npm ci && \
+    npm install --no-save --force @rollup/rollup-linux-x64-gnu || true && \
+    npm rebuild
 
 # Copy frontend source code
 COPY packages/frontend ./packages/frontend
