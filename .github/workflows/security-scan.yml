@@ -116,17 +116,17 @@ jobs:
           --severity ${{ env.SEVERITY_THRESHOLD }} \
           ${{ env.FRONTEND_IMAGE }}:latest >> scan-summary.txt 2>&1 || true
 
-    # Upload scan results to GitHub Security tab
+    # Upload scan results to GitHub Security tab (only if files exist)
     - name: Upload Backend Trivy results to GitHub Security
       uses: github/codeql-action/upload-sarif@v3
-      if: always()
+      if: always() && hashFiles('trivy-backend.sarif') != ''
       with:
         sarif_file: 'trivy-backend.sarif'
         category: 'trivy-backend'
 
     - name: Upload Frontend Trivy results to GitHub Security
       uses: github/codeql-action/upload-sarif@v3
-      if: always()
+      if: always() && hashFiles('trivy-frontend.sarif') != ''
       with:
         sarif_file: 'trivy-frontend.sarif'
         category: 'trivy-frontend'
@@ -198,15 +198,15 @@ jobs:
         npm install -g @cyclonedx/cyclonedx-npm
 
         # Generate SBOM for root
-        cyclonedx-npm --output-format json --output-file repo-sbom.json
+        npx @cyclonedx/cyclonedx-npm --output-format json --output-file repo-sbom.json --package-lock-only
 
         # Generate SBOM for backend
         cd packages/backend
-        cyclonedx-npm --output-format json --output-file ../../backend-deps-sbom.json
+        npx @cyclonedx/cyclonedx-npm --output-format json --output-file ../../backend-deps-sbom.json --package-lock-only
 
         # Generate SBOM for frontend
         cd ../frontend
-        cyclonedx-npm --output-format json --output-file ../../frontend-deps-sbom.json
+        npx @cyclonedx/cyclonedx-npm --output-format json --output-file ../../frontend-deps-sbom.json --package-lock-only
 
     # Upload dependency audit artifacts
     - name: Upload Dependency Audit Artifacts
