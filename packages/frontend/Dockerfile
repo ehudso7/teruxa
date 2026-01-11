@@ -2,6 +2,9 @@
 # Using pinned base image for reproducible builds
 FROM node:20.18.0-alpine3.20 AS builder
 
+# Apply security patches (trade-off: security over byte-for-byte reproducibility)
+RUN apk update && apk upgrade --no-cache
+
 WORKDIR /app
 
 # Copy package files from root and all workspaces (npm workspaces requires all package.json files)
@@ -24,8 +27,9 @@ RUN npm run build
 # Production stage - nginx with pinned version for reproducible builds
 FROM nginx:1.27.3-alpine
 
-# Install curl for health checks
-RUN apk add --no-cache curl
+# Apply security patches and install curl for health checks
+RUN apk update && apk upgrade --no-cache && \
+    apk add --no-cache curl
 
 # Copy custom nginx configuration
 COPY packages/frontend/nginx.conf /etc/nginx/nginx.conf
