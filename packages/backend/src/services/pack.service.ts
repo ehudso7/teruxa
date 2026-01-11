@@ -13,15 +13,13 @@ import { NotFoundError, ValidationError } from '../types/index.js';
 import type { PackManifest, Locale, Platform } from '../types/index.js';
 import type { CreativePack, LocalizedContent } from '@prisma/client';
 import type { ReadStream } from 'fs';
+import type { CreatePackInput as CreatePackBody } from '../validators/index.js';
 
 const logger = createChildLogger('pack-service');
 
-export interface CreatePackInput {
-  name: string;
+// Service-specific type that includes projectId from route params
+export interface CreatePackInput extends CreatePackBody {
   projectId: string;
-  angleIds: string[];
-  locales: Locale[];
-  platforms: Platform[];
 }
 
 export interface PackDownload {

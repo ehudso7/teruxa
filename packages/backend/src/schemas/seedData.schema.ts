@@ -1,20 +1,9 @@
-import { z } from 'zod';
 import type { SeedData } from '../types/index.js';
 import { ValidationError } from '../types/index.js';
+import { seedDataSchema } from '../validators/index.js';
 
-// Zod schema for SeedData validation
-export const seedDataSchema = z.object({
-  product_name: z.string(),
-  product_description: z.string(),
-  target_audience: z.string(),
-  key_benefits: z.array(z.string()),
-  pain_points: z.array(z.string()),
-  tone: z.enum(['professional', 'casual', 'humorous', 'urgent', 'empathetic']),
-  platforms: z.array(z.enum(['tiktok', 'instagram', 'youtube'])),
-  brand_guidelines: z.string().optional(),
-  competitors: z.array(z.string()).optional(),
-  unique_selling_points: z.array(z.string()).optional(),
-});
+// Re-export the schema from validators for consistency
+export { seedDataSchema };
 
 /**
  * Parse and validate seed data from a Prisma JsonValue
