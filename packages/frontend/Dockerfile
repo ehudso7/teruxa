@@ -1,6 +1,9 @@
 # Production Dockerfile for Frontend
 FROM node:20-alpine AS builder
 
+# Apply security patches
+RUN apk update && apk upgrade --no-cache
+
 WORKDIR /app
 
 # Copy package files from root and frontend
@@ -26,8 +29,9 @@ RUN npm run build
 # Production stage - nginx
 FROM nginx:alpine
 
-# Install curl for health checks
-RUN apk add --no-cache curl
+# Apply security patches and install curl for health checks
+RUN apk update && apk upgrade --no-cache && \
+    apk add --no-cache curl
 
 # Copy custom nginx configuration
 COPY packages/frontend/nginx.conf /etc/nginx/nginx.conf
