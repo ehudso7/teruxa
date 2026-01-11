@@ -24,7 +24,7 @@ const env = {
   ...process.env,
   NODE_ENV: process.env.NODE_ENV || 'test',
   AI_MOCK_MODE: 'true',
-  DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5433/teruxa_test?schema=public',
+  DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public',
   PORT: '3001',
   VITE_API_URL: 'http://127.0.0.1:3001',
 };

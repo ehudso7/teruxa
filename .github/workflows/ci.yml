@@ -47,31 +47,28 @@ jobs:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
 
-    # Step A: Install dependencies
+    # Install dependencies with Rollup native binary fix
     - name: Install dependencies
       run: |
         npm ci
         npm install --no-save --force @rollup/rollup-linux-x64-gnu || true
         npm rebuild
 
-    # Generate Prisma Client before type checking
-    # Step B: Generate Prisma Client (required for type checking)
-    # Step A1: Generate Prisma Client (required for type checking)
+    # Generate Prisma Client (required for type checking)
     - name: Generate Prisma Client
       run: npm run db:generate
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public
 
-    # Step C: Type checking
-    # Step B: Type checking
+    # Type checking
     - name: Run type checking
       run: npm run typecheck:all
 
-    # Step D: Linting
+    # Linting
     - name: Run linting
       run: npm run lint:all
 
-    # Step E: Build production
+    # Build production
     - name: Build production
       run: |
         # Build with production env to test release gates
@@ -106,14 +103,14 @@ jobs:
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps chromium
 
-    # Step F: Smoke tests (fail fast)
+    # Smoke tests (fail fast)
     - name: Run smoke tests
       run: npm run test:smoke
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public
         CI: true
 
-    # Step G: Full E2E tests
+    # Full E2E tests
     - name: Run E2E tests
       run: npm run test:e2e
       env:
