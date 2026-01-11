@@ -34,7 +34,8 @@ function createPrismaClient(): PrismaClient {
 
   // Log queries in development
   if (process.env.NODE_ENV === 'development') {
-    client.$on('query', (e: QueryEvent) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (client as any).$on('query', (e: QueryEvent) => {
       logger.debug({
         query: e.query,
         params: e.params,
@@ -43,11 +44,13 @@ function createPrismaClient(): PrismaClient {
     });
   }
 
-  client.$on('error', (e: LogEvent) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (client as any).$on('error', (e: LogEvent) => {
     logger.error({ error: e.message });
   });
 
-  client.$on('warn', (e: LogEvent) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (client as any).$on('warn', (e: LogEvent) => {
     logger.warn({ warning: e.message });
   });
 
