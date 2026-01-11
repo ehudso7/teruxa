@@ -2,6 +2,7 @@ import { projectRepository, angleRepository } from '../repositories/index.js';
 import { aiService } from './ai.service.js';
 import { createChildLogger } from '../utils/logger.js';
 import { NotFoundError } from '../types/index.js';
+import type { AngleStatus } from '../types/index.js';
 import type { AngleCard } from '@prisma/client';
 import { parseSeedData } from '../schemas/seedData.schema.js';
 import type { UpdateAngleInput } from '../validators/index.js';

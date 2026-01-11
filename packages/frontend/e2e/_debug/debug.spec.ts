@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+// This is a debug test file for local development troubleshooting
 import { test, expect, type Page } from '@playwright/test';
 
 async function gotoProjects(page: Page) {
