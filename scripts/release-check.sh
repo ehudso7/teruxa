@@ -6,6 +6,16 @@
 
 set -e  # Exit on any error
 
+# Detect docker compose command (docker-compose vs docker compose)
+if command -v docker-compose &> /dev/null; then
+    DOCKER_COMPOSE="docker-compose"
+elif docker compose version &> /dev/null; then
+    DOCKER_COMPOSE="docker compose"
+else
+    echo "Error: Neither 'docker-compose' nor 'docker compose' found"
+    exit 1
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -38,8 +48,14 @@ log_warning() {
 
 # Cleanup function
 cleanup() {
+    # Skip cleanup in CI environment
+    if [ "$CI" = "true" ]; then
+        log_info "Running in CI, skipping cleanup"
+        return
+    fi
+
     log_info "Cleaning up Docker containers..."
-    docker-compose -f docker-compose.release.yml down -v 2>/dev/null || true
+    $DOCKER_COMPOSE -f docker-compose.release.yml down -v 2>/dev/null || true
 
     # Kill any processes on the ports we use (portable solution)
     if [ -n "$(lsof -ti:3001 2>/dev/null)" ]; then
@@ -80,7 +96,7 @@ wait_for_service() {
 
     # Show container logs on failure
     log_error "Showing container logs:"
-    docker-compose -f docker-compose.release.yml logs --tail=50
+    $DOCKER_COMPOSE -f docker-compose.release.yml logs --tail=50
 
     return 1
 }
@@ -173,22 +189,32 @@ main() {
 
     # Step 2: Clean up any existing containers
     log_info "Step 2: Cleaning up any existing containers..."
-    docker-compose -f docker-compose.release.yml down -v 2>/dev/null || true
-    # Kill any processes on the ports we use (portable solution)
-    if [ -n "$(lsof -ti:3001 2>/dev/null)" ]; then
-        lsof -ti:3001 2>/dev/null | xargs kill -9 2>/dev/null || true
-    fi
-    if [ -n "$(lsof -ti:80 2>/dev/null)" ]; then
-        lsof -ti:80 2>/dev/null | xargs kill -9 2>/dev/null || true
-    fi
-    if [ -n "$(lsof -ti:5432 2>/dev/null)" ]; then
-        lsof -ti:5432 2>/dev/null | xargs kill -9 2>/dev/null || true
+
+    # In CI environment, skip cleanup since containers are ephemeral
+    if [ "$CI" = "true" ]; then
+        log_info "Running in CI, skipping container cleanup"
+    else
+        # Try to run docker compose down, but don't fail if it errors
+        if ! $DOCKER_COMPOSE -f docker-compose.release.yml down -v 2>/dev/null; then
+            log_warning "Could not clean up containers (this is OK if none exist)"
+        fi
+
+        # Kill any processes on the ports we use (portable solution)
+        if [ -n "$(lsof -ti:3001 2>/dev/null)" ]; then
+            lsof -ti:3001 2>/dev/null | xargs kill -9 2>/dev/null || true
+        fi
+        if [ -n "$(lsof -ti:80 2>/dev/null)" ]; then
+            lsof -ti:80 2>/dev/null | xargs kill -9 2>/dev/null || true
+        fi
+        if [ -n "$(lsof -ti:5432 2>/dev/null)" ]; then
+            lsof -ti:5432 2>/dev/null | xargs kill -9 2>/dev/null || true
+        fi
     fi
     echo
 
     # Step 3: Build Docker images
     log_info "Step 3: Building Docker images..."
-    if docker-compose -f docker-compose.release.yml build; then
+    if $DOCKER_COMPOSE -f docker-compose.release.yml build; then
         log_success "Docker images built successfully"
     else
         log_error "Failed to build Docker images"
@@ -198,7 +224,7 @@ main() {
 
     # Step 4: Start services
     log_info "Step 4: Starting services in production mode..."
-    if docker-compose -f docker-compose.release.yml up -d; then
+    if $DOCKER_COMPOSE -f docker-compose.release.yml up -d; then
         log_success "Services started"
     else
         log_error "Failed to start services"
@@ -253,7 +279,7 @@ main() {
     log_info "Step 8: Verifying production environment guards..."
 
     # Check that backend is running in production mode
-    backend_logs=$(docker-compose -f docker-compose.release.yml logs backend 2>&1)
+    backend_logs=$($DOCKER_COMPOSE -f docker-compose.release.yml logs backend 2>&1)
 
     if echo "$backend_logs" | grep -q "NODE_ENV.*production"; then
         log_success "Backend running in production mode ✓"
