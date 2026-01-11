@@ -2,9 +2,9 @@ import { projectRepository, angleRepository } from '../repositories/index.js';
 import { aiService } from './ai.service.js';
 import { createChildLogger } from '../utils/logger.js';
 import { NotFoundError } from '../types/index.js';
-import type { AngleStatus } from '../types/index.js';
 import type { AngleCard } from '@prisma/client';
 import { parseSeedData } from '../schemas/seedData.schema.js';
+import type { UpdateAngleInput } from '../validators/index.js';
 
 const logger = createChildLogger('angle-service');
 
@@ -14,16 +14,8 @@ export interface GenerateAnglesResult {
   count: number;
 }
 
-export interface UpdateAngleInput {
-  hook?: string;
-  problemAgitation?: string;
-  solution?: string;
-  cta?: string;
-  visualDirection?: string | null;
-  audioNotes?: string | null;
-  estimatedDuration?: number | null;
-  status?: AngleStatus;
-}
+// Re-export for consumers
+export type { UpdateAngleInput };
 
 class AngleService {
   async generateAngles(projectId: string, count: number): Promise<GenerateAnglesResult> {

@@ -51,6 +51,7 @@ jobs:
     - name: Install dependencies
       run: |
         npm ci
+        npm install --no-save --force @rollup/rollup-linux-x64-gnu || true
         npm rebuild
 
     # Generate Prisma Client before type checking
@@ -179,6 +180,7 @@ jobs:
     - name: Install dependencies
       run: |
         npm ci
+        npm install --no-save --force @rollup/rollup-linux-x64-gnu || true
         npm rebuild
 
     # Generate Prisma Client before build verification
@@ -263,7 +265,16 @@ jobs:
         cache: 'npm'
 
     - name: Install dependencies
-      run: npm ci
+      run: |
+        npm ci
+        npm install --no-save --force @rollup/rollup-linux-x64-gnu || true
+        npm rebuild
+
+    # Generate Prisma Client (required for type checking in build:verify)
+    - name: Generate Prisma Client
+      run: npm run db:generate
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/teruxa?schema=public' }}
 
     - name: Validate production build
       run: |

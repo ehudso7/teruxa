@@ -4,8 +4,9 @@ import { createChildLogger } from '../utils/logger.js';
 import { NotFoundError } from '../types/index.js';
 import { PLATFORM_LIMITS, validateContentLength } from '../utils/platform-limits.js';
 import { parseSeedData } from '../schemas/seedData.schema.js';
-import type { Locale, Platform, GeneratedAngle, Caption, OnScreenText } from '../types/index.js';
+import type { Locale, Platform, GeneratedAngle } from '../types/index.js';
 import type { LocalizedContent } from '@prisma/client';
+import type { UpdateLocalizedContentInput } from '../validators/index.js';
 
 const logger = createChildLogger('localization-service');
 
@@ -146,13 +147,7 @@ class LocalizationService {
 
   async updateLocalizedContent(
     id: string,
-    data: {
-      script?: string;
-      captions?: Caption[];
-      onScreenText?: OnScreenText[];
-      culturalNotes?: string | null;
-      platformAdjustments?: string | null;
-    }
+    data: UpdateLocalizedContentInput
   ) {
     const content = await localizedContentRepository.findById(id);
     if (!content) {

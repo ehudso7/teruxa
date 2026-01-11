@@ -33,5 +33,5 @@ export function parseSeedData(value: unknown): SeedData {
     throw new ValidationError('Invalid seed data', result.error.format());
   }
 
-  return result.data;
+  return result.data as SeedData;
 }
