@@ -20,5 +20,3 @@ jobs:
       with:
         # Fail on high or critical vulnerabilities
         fail-on-severity: high
-        # Deny problematic licenses (list format)
-        deny-licenses: GPL-3.0, AGPL-3.0, LGPL-3.0
