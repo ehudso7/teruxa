@@ -134,7 +134,7 @@ function startServer(command, args, cwd, name) {
 async function main() {
   try {
     console.log(green('🎭 Starting E2E test servers...\n'));
-    console.log(yellow(`Database URL: ${env.DATABASE_URL}`));
+    console.log(yellow('Database URL: [REDACTED]'));
 
     // Step 1: Generate Prisma client
     await runCommand('npm', ['run', 'db:generate'], backendDir, 'Generating Prisma client');

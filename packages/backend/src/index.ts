@@ -14,7 +14,7 @@ const app = express();
 
 // Security middleware with production-grade settings
 app.use(helmet({
-  contentSecurityPolicy: config.NODE_ENV === 'production' ? {
+  contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
@@ -26,7 +26,7 @@ app.use(helmet({
       mediaSrc: ["'self'"],
       frameSrc: ["'none'"],
     },
-  } : false,
+  },
   hsts: config.NODE_ENV === 'production' ? {
     maxAge: 31536000,
     includeSubDomains: true,
