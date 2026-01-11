@@ -29,6 +29,7 @@
     "typecheck:frontend": "cd packages/frontend && tsc --noEmit",
     "db:migrate": "npm run db:migrate -w @ugc/backend",
     "db:generate": "npm run db:generate -w @ugc/backend",
+    "db:push": "npm run db:push -w @ugc/backend",
     "db:seed": "npm run db:seed -w @ugc/backend",
     "ci:release": "npm run build:verify && npm run test:smoke && npm run test:e2e",
     "release:check": "./scripts/release-check.sh",
