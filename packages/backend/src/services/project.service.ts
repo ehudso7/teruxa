@@ -1,22 +1,16 @@
 import { projectRepository } from '../repositories/index.js';
 import { createChildLogger } from '../utils/logger.js';
 import { NotFoundError } from '../types/index.js';
-import type { SeedData } from '../types/index.js';
 import type { Project } from '@prisma/client';
+import type {
+  CreateProjectInput,
+  UpdateProjectInput,
+} from '../validators/index.js';
 
 const logger = createChildLogger('project-service');
 
-export interface CreateProjectInput {
-  name: string;
-  description?: string;
-  seedData: SeedData;
-}
-
-export interface UpdateProjectInput {
-  name?: string;
-  description?: string;
-  seedData?: SeedData;
-}
+// Re-export types for consumers
+export type { CreateProjectInput, UpdateProjectInput };
 
 class ProjectService {
   async createProject(input: CreateProjectInput): Promise<Project> {
