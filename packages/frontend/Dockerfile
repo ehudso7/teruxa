@@ -8,8 +8,11 @@ COPY package*.json ./
 COPY packages/frontend/package*.json ./packages/frontend/
 
 # Install all dependencies (needed for build)
+# Note: Alpine uses musl libc, so we need @rollup/rollup-linux-x64-musl
 RUN npm ci && \
-    npm install --no-save --force @rollup/rollup-linux-x64-gnu || true && \
+    if ! npm install --no-save --force @rollup/rollup-linux-x64-musl 2>/dev/null; then \
+      echo "Warning: Could not install @rollup/rollup-linux-x64-musl, continuing anyway"; \
+    fi && \
     npm rebuild
 
 # Copy frontend source code
