@@ -64,7 +64,7 @@ export const anglesApi = {
   generate: async (projectId: string, count = 3) => {
     const res = await api.post<ApiResponse<{ angles: AngleCard[] }>>(
       `/angles/projects/${projectId}/generate`,
-      null,
+      {},
       { params: { count } }
     );
     return res.data.data?.angles ?? [];

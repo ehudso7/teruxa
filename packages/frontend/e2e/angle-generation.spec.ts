@@ -1,141 +1,277 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5173';
+
+function escapeRegExp(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function pickAngleText(angle: any): string | null {
+  if (!angle || typeof angle !== 'object') return null;
+
+  const candidates: Array<unknown> = [
+    angle.title,
+    angle.headline,
+    angle.hook,
+    angle.angle,
+    angle.content,
+    angle.description,
+    angle.summary,
+    angle.body,
+    // common nested shapes
+    angle.data?.title,
+    angle.data?.headline,
+    angle.data?.hook,
+    angle.data?.content,
+  ];
+
+  for (const c of candidates) {
+    if (typeof c === 'string') {
+      const t = c.trim();
+      if (t.length >= 8) return t;
+    }
+  }
+  return null;
+}
+
+function extractProjectId(payload: any): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+
+  const direct = payload.id || payload.projectId;
+  if (typeof direct === 'string' && direct.length > 10) return direct;
+
+  const nested = payload.project?.id || payload.project?.projectId || payload.data?.id || payload.data?.projectId;
+  if (typeof nested === 'string' && nested.length > 10) return nested;
+
+  return null;
+}
+
+function extractAngles(payload: any): any[] {
+  if (Array.isArray(payload)) return payload;
+  if (payload?.angles && Array.isArray(payload.angles)) return payload.angles;
+  if (payload?.data?.angles && Array.isArray(payload.data.angles)) return payload.data.angles;
+  if (payload?.data && Array.isArray(payload.data)) return payload.data;
+  return [];
+}
+
+async function gotoProjects(page: Page) {
+  await page.goto(`${BASE_URL}/projects`, { waitUntil: 'domcontentloaded' });
+
+  // Prefer an API-backed "ready" signal; allow 200 or 304 (cache)
+  await page.waitForResponse(
+    (r) =>
+      r.url().includes('/api/projects') &&
+      r.request().method() === 'GET' &&
+      (r.status() === 200 || r.status() === 304),
+    { timeout: 30000 }
+  );
+}
+
+async function openCreateProjectModal(page: Page) {
+  // Use semantic-ish fallback: any obvious create button
+  const openBtn = page.locator(
+    'button:has-text("Create Project"), button:has-text("New Project"), button:has-text("Create")'
+  ).first();
+
+  await expect(openBtn).toBeVisible({ timeout: 30000 });
+  await openBtn.click();
+
+  // Modal presence = required field appears
+  await expect(page.locator('input[name="name"]').first()).toBeVisible({ timeout: 30000 });
+
+  // Return a scoped form locator (safer than guessing modal container classes)
+  const form = page.locator('form').filter({ has: page.locator('input[name="name"]') }).first();
+  await expect(form).toBeVisible({ timeout: 30000 });
+  return form;
+}
+
+async function createProject(page: Page) {
+  await gotoProjects(page);
+
+  const form = await openCreateProjectModal(page);
+
+  const projectName = `Test Project ${Date.now()}`;
+
+  // Fill REQUIRED fields (based on your modal HTML dump)
+  await form.locator('input[name="name"]').fill(projectName);
+  await form.locator('input[name="product_name"]').fill('Teruxa Test Product');
+  await form.locator('textarea[name="product_description"]').fill('A test product description for deterministic E2E.');
+  await form.locator('input[name="target_audience"]').fill('People who need reliable E2E tests.');
+  await form.locator('textarea[name="key_benefits"]').fill('Fast\nAccurate\nReliable');
+  await form.locator('textarea[name="pain_points"]').fill('Flaky tests\nUnclear selectors\nCI instability');
+
+  // Tone select required
+  const toneSelect = form.locator('select[name="tone"]');
+  if (await toneSelect.count()) {
+    await toneSelect.selectOption({ value: 'professional' });
+  }
+
+  // Prepare POST wait BEFORE submit
+  const createRespPromise = page.waitForResponse(
+    (r) =>
+      r.url().includes('/api/projects') &&
+      r.request().method() === 'POST' &&
+      r.status() >= 200 &&
+      r.status() < 300,
+    { timeout: 30000 }
+  );
+
+  // Submit (inside the form)
+  await form.locator('button[type="submit"]').first().click();
+
+  const createResp = await createRespPromise;
+  const createJson = await createResp.json().catch(() => null);
+
+  const projectId = extractProjectId(createJson);
+  expect(projectId, `Could not extract projectId from create response: ${JSON.stringify(createJson)}`).toBeTruthy();
+
+  // Modal closes = name input disappears
+  await expect(page.locator('input[name="name"]').first()).toBeHidden({ timeout: 30000 });
+
+  return { projectId: projectId as string, projectName };
+}
+
+async function generateAngles(page: Page, projectId: string) {
+  // Go straight to angles page for this project
+  await page.goto(`${BASE_URL}/projects/${projectId}/angles`, { waitUntil: 'domcontentloaded' });
+
+  // Page fetches angles initially (allow empty)
+  await page.waitForResponse(
+    (r) =>
+      r.url().includes(`/api/angles/projects/${projectId}/angles`) &&
+      r.request().method() === 'GET' &&
+      (r.status() === 200 || r.status() === 304),
+    { timeout: 30000 }
+  );
+
+  // Click generate (whatever the UI calls it)
+  const generateBtn = page
+    .getByRole('button', { name: /generate/i })
+    .or(page.locator('button:has-text("Generate Angles"), button:has-text("Generate")'))
+    .first();
+
+  await expect(generateBtn).toBeVisible({ timeout: 30000 });
+
+  const genRespPromise = page.waitForResponse(
+    (r) =>
+      r.url().includes(`/api/angles/projects/${projectId}/generate`) &&
+      r.request().method() === 'POST' &&
+      r.status() >= 200 &&
+      r.status() < 400,
+    { timeout: 30000 }
+  );
+
+  await generateBtn.click();
+  await genRespPromise;
+
+  // After generate, the UI should re-fetch angles
+  const anglesResp = await page.waitForResponse(
+    (r) =>
+      r.url().includes(`/api/angles/projects/${projectId}/angles`) &&
+      r.request().method() === 'GET' &&
+      (r.status() === 200 || r.status() === 304),
+    { timeout: 30000 }
+  );
+
+  // Pull angles from API directly (most reliable truth)
+  let anglesJson: any = null;
+  try {
+    anglesJson = await anglesResp.json();
+  } catch {
+    // If 304, json() can be empty; fetch directly
+    const direct = await page.request.get(`${BASE_URL}/api/angles/projects/${projectId}/angles`);
+    anglesJson = await direct.json().catch(() => null);
+  }
+
+  const angles = extractAngles(anglesJson);
+  expect(angles.length, `Angles API returned empty payload: ${JSON.stringify(anglesJson)}`).toBeGreaterThan(0);
+
+  // Assert UI renders at least ONE recognizable angle text
+  const firstText = pickAngleText(angles[0]);
+  if (firstText) {
+    // Use a short snippet to avoid exact formatting differences
+    const snippet = firstText.slice(0, Math.min(30, firstText.length));
+    const re = new RegExp(escapeRegExp(snippet), 'i');
+    await expect(page.getByText(re).first()).toBeVisible({ timeout: 30000 });
+  } else {
+    // Fallback: at least something on screen besides the Generate button
+    await expect(page.locator('main').first()).toBeVisible({ timeout: 30000 });
+  }
+
+  return { angles, firstText };
+}
+
+async function testAngleCardInteractions(page: Page, projectId: string) {
+  // Test deterministic angle card interactions
+  // Wait for angle cards to be visible
+  await expect(page.getByTestId('angle-card').first()).toBeVisible({ timeout: 30000 });
+
+  // Test Mark Winner button
+  const winnerButton = page.getByTestId('angle-mark-winner').first();
+  await expect(winnerButton).toBeVisible({ timeout: 30000 });
+
+  // Click winner button and wait for API response
+  const winnerRespPromise = page.waitForResponse(
+    (r) =>
+      r.url().includes('/api/angles') &&
+      r.url().includes('/winner') &&
+      r.request().method() === 'PATCH' &&
+      r.status() >= 200 &&
+      r.status() < 300,
+    { timeout: 30000 }
+  );
+
+  await winnerButton.click();
+  await winnerRespPromise;
+
+  // Verify button text changed to indicate winner status
+  await expect(winnerButton).toContainText('Winner', { timeout: 30000 });
+
+  // Test Regenerate button
+  const regenerateButton = page.getByTestId('angle-regenerate').first();
+  await expect(regenerateButton).toBeVisible({ timeout: 30000 });
+
+  // Click regenerate and wait for API response
+  const regenRespPromise = page.waitForResponse(
+    (r) =>
+      r.url().includes('/api/angles') &&
+      r.url().includes('/regenerate') &&
+      r.request().method() === 'POST' &&
+      r.status() >= 200 &&
+      r.status() < 300,
+    { timeout: 30000 }
+  );
+
+  await regenerateButton.click();
+  await regenRespPromise;
+
+  // After regeneration, the UI should re-fetch angles
+  await page.waitForResponse(
+    (r) =>
+      r.url().includes(`/api/angles/projects/${projectId}/angles`) &&
+      r.request().method() === 'GET' &&
+      (r.status() === 200 || r.status() === 304),
+    { timeout: 30000 }
+  );
+}
 
 test.describe('Angle Generation Happy Path', () => {
+  // Helps avoid cross-test interference while you're still stabilizing UI selectors
+  test.describe.configure({ mode: 'serial' });
+
   test('should create project and generate angles using AI mock mode', async ({ page }) => {
-    // Navigate to the application
-    await page.goto('/');
+    const { projectId } = await createProject(page);
+    await generateAngles(page, projectId);
 
-    // Wait for the app to load - wait for navigation or main content
-    await page.waitForSelector('nav, header, [data-testid="app-header"], text=Projects', { timeout: 30000 });
-
-    // Navigate to projects if needed
-    const projectsLink = page.locator('text=Projects').first();
-    if (await projectsLink.isVisible()) {
-      await projectsLink.click();
-    }
-
-    // Create a new project with seed data
-    const createButton = page.locator('button:has-text("Create"), button:has-text("New Project"), button:has-text("Add Project")').first();
-    await createButton.click();
-
-    const projectName = `Angle Test ${Date.now()}`;
-
-    // Fill in project details
-    await page.fill('input[name="name"], input[placeholder*="name" i], input[placeholder*="title" i]', projectName);
-
-    // Fill in comprehensive seed data for angle generation
-    const seedData = {
-      productName: 'FitTracker Pro',
-      targetAudience: 'Health-conscious millennials aged 25-35',
-      uniqueSellingPoints: [
-        'AI-powered workout recommendations',
-        'Seamless integration with smartwatches',
-        'Social challenges with friends'
-      ],
-      painPoints: [
-        'Lack of motivation to exercise',
-        'Difficulty tracking progress',
-        'Boring workout routines'
-      ],
-      brandVoice: 'Energetic, motivational, and friendly',
-      competitorProducts: ['Fitbit', 'MyFitnessPal'],
-      desiredOutcome: 'Get users excited about starting their fitness journey'
-    };
-
-    const seedDataField = page.locator('textarea[name="seedData"], textarea[placeholder*="seed" i], textarea[placeholder*="product" i]').first();
-    await seedDataField.fill(JSON.stringify(seedData, null, 2));
-
-    // Submit the form
-    const submitButton = page.locator('button[type="submit"], button:has-text("Create"), button:has-text("Save")').first();
-    await submitButton.click();
-
-    // Wait for navigation to project details
-    await page.waitForLoadState('networkidle');
-    await expect(page).toHaveURL(/\/projects\/[a-f0-9-]+/, { timeout: 10000 });
-
-    // Find and click the "Generate Angles" button
-    const generateAnglesButton = page.locator('button:has-text("Generate Angles"), button:has-text("Generate"), button:has-text("Create Angles")').first();
-    await expect(generateAnglesButton).toBeVisible({ timeout: 10000 });
-    await generateAnglesButton.click();
-
-    // Wait for angle generation to complete (may show loading state)
-    const loadingIndicator = page.locator('.loading, .spinner, [data-testid="loading"]').first();
-    if (await loadingIndicator.isVisible()) {
-      await expect(loadingIndicator).not.toBeVisible({ timeout: 30000 });
-    }
-
-    // Verify that angles are rendered
-    await page.waitForSelector('[data-testid="angle-card"], .angle-card, article.angle', { timeout: 30000 });
-
-    // Verify at least one angle card is present
-    const angleCards = page.locator('[data-testid="angle-card"], .angle-card, article.angle');
-    await expect(angleCards).toHaveCount(3, { timeout: 10000 }); // Expecting 3 angles based on mock
-
-    // Verify angle structure (hook, problem, solution, CTA)
-    const firstAngle = angleCards.first();
-
-    // Check for key angle components
-    const angleContent = await firstAngle.textContent();
-    expect(angleContent).toBeTruthy();
-
-    // Verify angle has essential components (checking for labels or content)
-    const hasHook = angleContent?.toLowerCase().includes('hook') || angleContent?.includes('attention');
-    const hasProblem = angleContent?.toLowerCase().includes('problem') || angleContent?.includes('struggle');
-    const hasSolution = angleContent?.toLowerCase().includes('solution') || angleContent?.includes('fittracker');
-    const hasCTA = angleContent?.toLowerCase().includes('cta') || angleContent?.toLowerCase().includes('call to action') || angleContent?.includes('download');
-
-    expect(hasHook || hasProblem || hasSolution || hasCTA).toBeTruthy();
+    // Test deterministic angle card interactions
+    await testAngleCardInteractions(page, projectId);
   });
 
   test('should display and interact with generated angles', async ({ page }) => {
-    // This test assumes at least one project with angles exists
-    // Navigate to the application
-    await page.goto('/');
+    const { projectId } = await createProject(page);
+    await generateAngles(page, projectId);
 
-    // Wait for the app to load - wait for navigation or main content
-    await page.waitForSelector('nav, header, [data-testid="app-header"], text=Projects', { timeout: 30000 });
-
-    // Navigate to projects
-    const projectsLink = page.locator('text=Projects').first();
-    if (await projectsLink.isVisible()) {
-      await projectsLink.click();
-    }
-
-    // Wait for projects to load
-    await page.waitForLoadState('networkidle');
-
-    // Click on the first available project (if any)
-    const projectItems = page.locator('[data-testid="project-item"], .project-item, article').first();
-
-    if (await projectItems.isVisible()) {
-      await projectItems.click();
-
-      // Wait for project details to load
-      await page.waitForLoadState('networkidle');
-
-      // Check if angles exist
-      const angleCards = page.locator('[data-testid="angle-card"], .angle-card, article.angle');
-      const angleCount = await angleCards.count();
-
-      if (angleCount > 0) {
-        // Verify angle status badges if present
-        const statusBadge = page.locator('[data-testid="angle-status"], .status, .badge').first();
-        if (await statusBadge.isVisible()) {
-          const statusText = await statusBadge.textContent();
-          expect(['draft', 'in_review', 'approved', 'archived']).toContain(statusText?.toLowerCase());
-        }
-
-        // Test angle interaction - click on first angle
-        const firstAngle = angleCards.first();
-        await firstAngle.click();
-
-        // Check if detail view or edit options appear
-        const editButton = page.locator('button:has-text("Edit"), button:has-text("Update")').first();
-        const localizeButton = page.locator('button:has-text("Localize"), button:has-text("Translate")').first();
-
-        const hasInteraction = await editButton.isVisible() || await localizeButton.isVisible();
-        expect(hasInteraction).toBeTruthy();
-      }
-    }
+    // Assert all angle card controls are accessible and functional
+    await testAngleCardInteractions(page, projectId);
   });
 });

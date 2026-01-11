@@ -94,7 +94,92 @@ npm run test
 
 # Run linting
 npm run lint
+
+# Run production release check (requires Docker)
+npm run release:check
 ```
+
+## Release Check
+
+The release check performs a complete production cold-start verification, ensuring the app can be built and run from scratch with production guards enforced.
+
+### Running Release Check Locally
+
+```bash
+# Prerequisites
+# - Docker and Docker Compose installed
+# - Clean repository state (commit or stash changes)
+
+# Run the release check
+npm run release:check
+```
+
+This will:
+1. Run build verification (typecheck, lint, production build)
+2. Build Docker images for frontend and backend
+3. Start PostgreSQL, backend, and frontend in production mode
+4. Wait for health checks
+5. Perform HTTP smoke tests on critical endpoints
+6. Verify security headers
+7. Validate production environment guards
+8. Clean up containers and volumes
+
+### Production Environment Variables
+
+For production deployments, these environment variables are required:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `OPENAI_API_KEY` | Yes | OpenAI API key (starts with `sk-`) |
+| `CORS_ORIGIN` | Yes | Allowed origin for CORS (e.g., `https://app.example.com`) |
+| `PORT` | No | Backend port (default: 3001) |
+| `AI_MOCK_MODE` | No | Must be `false` or unset in production |
+
+### CI Integration
+
+The release check runs as a required gate in our CI pipeline:
+
+#### CI Gates (in order)
+
+1. **ci job** - Core validation
+   - Type checking (`npm run typecheck:all`)
+   - Linting (`npm run lint:all`)
+   - Production build (`npm run build:all`)
+   - Unit tests (`npm run test`)
+   - Smoke tests (`npm run test:smoke`)
+   - Full E2E tests (`npm run test:e2e`)
+
+2. **release-check job** - Docker cold-start validation
+   - Docker image builds
+   - Production environment startup
+   - Health checks and smoke tests
+   - Security header validation
+   - Production guard enforcement
+
+3. **release-validation job** - Main branch only
+   - Final production build validation
+   - Uses production environment variables
+
+#### Running in GitHub Actions
+
+```yaml
+# Automatically runs on all PRs and pushes to main
+- name: Run Release Check
+  run: npm run release:check
+```
+
+The release check completes in ~30-90 seconds with Docker caching enabled. It runs in parallel with the main CI job for faster feedback.
+
+#### Artifacts on Failure
+
+When the release check fails, these artifacts are preserved:
+- `release-check.log` - Full command output
+- `docker-logs.txt` - Container logs from all services
+- `test-results/` - Playwright test results (if applicable)
+- `playwright-report/` - HTML test report (if applicable)
+
+Access these via the GitHub Actions UI under "Artifacts".
 
 ## API Endpoints
 

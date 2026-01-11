@@ -6,13 +6,21 @@ on:
   pull_request:
     branches: [ main ]
 
+# Cancel in-progress runs on the same PR branch
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   NODE_VERSION: '20'
   AI_MOCK_MODE: 'true'
+  DOCKER_BUILDKIT: '1'
+  COMPOSE_DOCKER_CLI_BUILD: '1'
 
 jobs:
   ci:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     services:
       postgres:
@@ -39,14 +47,26 @@ jobs:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
 
+    # Step A: Install dependencies
     - name: Install dependencies
       run: npm ci
 
-    - name: Run linting
-      run: npm run lint
-
+    # Step B: Type checking
     - name: Run type checking
-      run: npm run typecheck
+      run: npm run typecheck:all
+
+    # Step B: Linting
+    - name: Run linting
+      run: npm run lint:all
+
+    # Step C: Build production
+    - name: Build production
+      run: |
+        # Build with production env to test release gates
+        NODE_ENV=production npm run build:all
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public
+        VITE_API_URL: http://localhost:3001
 
     - name: Setup test environment
       env:
@@ -76,25 +96,29 @@ jobs:
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public
 
-    - name: Build application
-      run: npm run build
-      env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public
-
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps chromium
 
+    # Step D: Smoke tests (fail fast)
+    - name: Run smoke tests
+      run: npm run test:smoke
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public
+        CI: true
+
+    # Step E: Full E2E tests
     - name: Run E2E tests
       run: npm run test:e2e
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public
         CI: true
 
+    # Preserve artifacts on failure
     - name: Upload test artifacts on failure
       uses: actions/upload-artifact@v4
       if: failure()
       with:
-        name: test-results
+        name: test-results-${{ github.sha }}
         path: |
           packages/frontend/test-results/
           packages/frontend/playwright-report/
@@ -104,8 +128,134 @@ jobs:
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: coverage-report
+        name: coverage-report-${{ github.sha }}
         path: |
           packages/backend/coverage/
           packages/frontend/coverage/
         retention-days: 7
+
+  # Release check job - Docker cold start production validation
+  release-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    # Enable Docker BuildKit
+    - name: Setup Docker BuildKit
+      run: |
+        echo 'DOCKER_BUILDKIT=1' >> $GITHUB_ENV
+        echo 'COMPOSE_DOCKER_CLI_BUILD=1' >> $GITHUB_ENV
+
+    # Setup Docker layer caching
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      with:
+        driver-opts: network=host
+
+    # Cache Docker layers
+    - name: Cache Docker layers
+      uses: actions/cache@v3
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run build verification
+      run: npm run build:verify
+
+    # Main release check - this runs the full docker compose cold start
+    - name: Run release check
+      id: release-check
+      run: |
+        # Make script executable
+        chmod +x ./scripts/release-check.sh
+
+        # Run the release check and capture output
+        ./scripts/release-check.sh 2>&1 | tee release-check.log
+
+        # Store exit code
+        echo "exit-code=$?" >> $GITHUB_OUTPUT
+
+    # Capture Docker logs on failure
+    - name: Capture Docker logs on failure
+      if: failure()
+      run: |
+        echo "=== Docker Container Logs ===" > docker-logs.txt
+        echo "" >> docker-logs.txt
+
+        echo "=== Docker Containers Status ===" >> docker-logs.txt
+        docker ps -a >> docker-logs.txt 2>&1 || true
+        echo "" >> docker-logs.txt
+
+        echo "=== Backend Container Logs ===" >> docker-logs.txt
+        docker-compose -f docker-compose.release.yml logs backend >> docker-logs.txt 2>&1 || true
+        echo "" >> docker-logs.txt
+
+        echo "=== Frontend Container Logs ===" >> docker-logs.txt
+        docker-compose -f docker-compose.release.yml logs frontend >> docker-logs.txt 2>&1 || true
+        echo "" >> docker-logs.txt
+
+        echo "=== Postgres Container Logs ===" >> docker-logs.txt
+        docker-compose -f docker-compose.release.yml logs postgres >> docker-logs.txt 2>&1 || true
+
+    # Clean up Docker containers
+    - name: Clean up Docker containers
+      if: always()
+      run: |
+        docker-compose -f docker-compose.release.yml down -v || true
+        docker system prune -f || true
+
+    # Upload artifacts on failure
+    - name: Upload release check artifacts on failure
+      uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: release-check-artifacts-${{ github.sha }}
+        path: |
+          release-check.log
+          docker-logs.txt
+          packages/frontend/test-results/
+          packages/frontend/playwright-report/
+        retention-days: 7
+
+  # Release validation job - runs on main branch only
+  release-validation:
+    runs-on: ubuntu-latest
+    needs: [ci, release-check]
+    if: github.ref == 'refs/heads/main'
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Validate production build
+      run: |
+        # Test with production environment vars
+        NODE_ENV=production npm run build:verify
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/teruxa?schema=public' }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'sk-test-key' }}
+        CORS_ORIGIN: ${{ secrets.CORS_ORIGIN || 'https://example.com' }}

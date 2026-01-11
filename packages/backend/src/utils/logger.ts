@@ -1,4 +1,4 @@
-import pino, { type LoggerOptions } from 'pino';
+import { pino, type LoggerOptions } from 'pino';
 
 const isProd = process.env.NODE_ENV === 'production';
 
