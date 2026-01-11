@@ -22,6 +22,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    # Job-level environment variable to avoid repeating DATABASE_URL
+    env:
+      DATABASE_URL: postgresql://postgres@localhost:5432/teruxa_test?schema=public
+
     services:
       postgres:
         image: postgres:14
@@ -29,6 +33,7 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: teruxa_test
+          POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 5432:5432
         options: >-
@@ -51,14 +56,15 @@ jobs:
     - name: Install dependencies
       run: |
         npm ci
-        npm install --no-save --force @rollup/rollup-linux-x64-gnu || true
+        # Install Rollup native binary for Linux (workaround for npm optional deps bug)
+        if ! npm install --no-save --force @rollup/rollup-linux-x64-gnu 2>/dev/null; then
+          echo "Warning: Could not install @rollup/rollup-linux-x64-gnu, continuing anyway"
+        fi
         npm rebuild
 
     # Generate Prisma Client (required for type checking)
     - name: Generate Prisma Client
       run: npm run db:generate
-      env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public
 
     # Type checking
     - name: Run type checking
@@ -74,12 +80,9 @@ jobs:
         # Build with production env to test release gates
         NODE_ENV=production npm run build:all
       env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public
         VITE_API_URL: http://localhost:3001
 
     - name: Setup test environment
-      env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public
       run: |
         # Create backend .env file
         cat > packages/backend/.env << EOF
@@ -92,13 +95,9 @@ jobs:
 
     - name: Run database migrations
       run: npm run db:push
-      env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public
 
     - name: Run unit tests
       run: npm run test
-      env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public
 
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps chromium
@@ -107,14 +106,12 @@ jobs:
     - name: Run smoke tests
       run: npm run test:smoke
       env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public
         CI: true
 
     # Full E2E tests
     - name: Run E2E tests
       run: npm run test:e2e
       env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public
         CI: true
 
     # Preserve artifacts on failure
@@ -142,6 +139,10 @@ jobs:
   release-check:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
+    # Job-level environment variable for Prisma
+    env:
+      DATABASE_URL: postgresql://postgres@localhost:5432/teruxa_test?schema=public
 
     steps:
     - name: Checkout code
@@ -177,14 +178,15 @@ jobs:
     - name: Install dependencies
       run: |
         npm ci
-        npm install --no-save --force @rollup/rollup-linux-x64-gnu || true
+        # Install Rollup native binary for Linux (workaround for npm optional deps bug)
+        if ! npm install --no-save --force @rollup/rollup-linux-x64-gnu 2>/dev/null; then
+          echo "Warning: Could not install @rollup/rollup-linux-x64-gnu, continuing anyway"
+        fi
         npm rebuild
 
     # Generate Prisma Client before build verification
     - name: Generate Prisma Client
       run: npm run db:generate
-      env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public
 
     - name: Run build verification
       run: npm run build:verify
@@ -251,6 +253,10 @@ jobs:
     if: github.ref == 'refs/heads/main'
     timeout-minutes: 10
 
+    # Job-level environment variable for Prisma
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://postgres@localhost:5432/teruxa?schema=public' }}
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -264,20 +270,20 @@ jobs:
     - name: Install dependencies
       run: |
         npm ci
-        npm install --no-save --force @rollup/rollup-linux-x64-gnu || true
+        # Install Rollup native binary for Linux (workaround for npm optional deps bug)
+        if ! npm install --no-save --force @rollup/rollup-linux-x64-gnu 2>/dev/null; then
+          echo "Warning: Could not install @rollup/rollup-linux-x64-gnu, continuing anyway"
+        fi
         npm rebuild
 
     # Generate Prisma Client (required for type checking in build:verify)
     - name: Generate Prisma Client
       run: npm run db:generate
-      env:
-        DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/teruxa?schema=public' }}
 
     - name: Validate production build
       run: |
         # Test with production environment vars
         NODE_ENV=production npm run build:verify
       env:
-        DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/teruxa?schema=public' }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'sk-test-key' }}
         CORS_ORIGIN: ${{ secrets.CORS_ORIGIN || 'https://example.com' }}

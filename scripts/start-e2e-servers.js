@@ -33,7 +33,7 @@ let backendProcess = null;
 let frontendProcess = null;
 
 // Cleanup on exit
-function cleanup() {
+function cleanup(exitCode = 0) {
   console.log(yellow('\n🔄 Shutting down servers...'));
   if (backendProcess) {
     backendProcess.kill('SIGTERM');
@@ -41,11 +41,11 @@ function cleanup() {
   if (frontendProcess) {
     frontendProcess.kill('SIGTERM');
   }
-  process.exit(0);
+  process.exit(exitCode);
 }
 
-process.on('SIGINT', cleanup);
-process.on('SIGTERM', cleanup);
+process.on('SIGINT', () => cleanup(0));
+process.on('SIGTERM', () => cleanup(0));
 
 // Wait for a URL to be available
 function waitForUrl(url, maxAttempts = 60, interval = 2000) {
@@ -166,7 +166,7 @@ async function main() {
 
   } catch (error) {
     console.error(red(`\n❌ Error: ${error.message}`));
-    cleanup();
+    cleanup(1);
   }
 }
 

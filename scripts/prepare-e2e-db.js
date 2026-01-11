@@ -10,6 +10,19 @@ const path = require('path');
 
 const backendDir = path.join(__dirname, '..', 'packages', 'backend');
 
+// Redact credentials from database URL for logging
+function redactDatabaseUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.password) {
+      parsed.password = '[REDACTED]';
+    }
+    return parsed.toString();
+  } catch {
+    return '[REDACTED]';
+  }
+}
+
 // Set up environment
 const env = {
   ...process.env,
@@ -17,7 +30,7 @@ const env = {
 };
 
 console.log('🗄️  Preparing database for E2E tests...');
-console.log(`📍 Database URL: ${env.DATABASE_URL}`);
+console.log(`📍 Database URL: ${redactDatabaseUrl(env.DATABASE_URL)}`);
 
 try {
   // Generate Prisma client
