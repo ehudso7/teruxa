@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { createChildLogger } from '../utils/logger.js';
 
 const logger = createChildLogger('prisma');
@@ -19,7 +19,7 @@ function createPrismaClient(): PrismaClient {
 
   // Log queries in development
   if (process.env.NODE_ENV === 'development') {
-    client.$on('query', (e) => {
+    client.$on('query', (e: Prisma.QueryEvent) => {
       logger.debug({
         query: e.query,
         params: e.params,
@@ -28,11 +28,11 @@ function createPrismaClient(): PrismaClient {
     });
   }
 
-  client.$on('error', (e) => {
+  client.$on('error', (e: Prisma.LogEvent) => {
     logger.error({ error: e.message });
   });
 
-  client.$on('warn', (e) => {
+  client.$on('warn', (e: Prisma.LogEvent) => {
     logger.warn({ warning: e.message });
   });
 
