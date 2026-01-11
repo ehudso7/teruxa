@@ -1,8 +1,6 @@
 # Production Dockerfile for Frontend
-FROM node:20-alpine AS builder
-
-# Apply security patches
-RUN apk update && apk upgrade --no-cache
+# Using pinned base image for reproducible builds
+FROM node:20.18.0-alpine3.20 AS builder
 
 WORKDIR /app
 
@@ -11,12 +9,8 @@ COPY package*.json ./
 COPY packages/frontend/package*.json ./packages/frontend/
 
 # Install all dependencies (needed for build)
-# Note: Alpine uses musl libc, so we need @rollup/rollup-linux-x64-musl
-RUN npm ci && \
-    if ! npm install --no-save --force @rollup/rollup-linux-x64-musl 2>/dev/null; then \
-      echo "Warning: Could not install @rollup/rollup-linux-x64-musl, continuing anyway"; \
-    fi && \
-    npm rebuild
+# Note: Rollup native binaries are declared in optionalDependencies
+RUN npm ci && npm rebuild
 
 # Copy frontend source code
 COPY packages/frontend ./packages/frontend
@@ -26,12 +20,11 @@ WORKDIR /app/packages/frontend
 ENV NODE_ENV=production
 RUN npm run build
 
-# Production stage - nginx
-FROM nginx:alpine
+# Production stage - nginx with pinned version for reproducible builds
+FROM nginx:1.27.3-alpine
 
-# Apply security patches and install curl for health checks
-RUN apk update && apk upgrade --no-cache && \
-    apk add --no-cache curl
+# Install curl for health checks
+RUN apk add --no-cache curl
 
 # Copy custom nginx configuration
 COPY packages/frontend/nginx.conf /etc/nginx/nginx.conf
