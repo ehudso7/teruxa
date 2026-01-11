@@ -52,12 +52,14 @@ jobs:
       run: npm ci
 
     # Step B: Generate Prisma Client (required for type checking)
+    # Step A1: Generate Prisma Client (required for type checking)
     - name: Generate Prisma Client
       run: npm run db:generate
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public
 
     # Step C: Type checking
+    # Step B: Type checking
     - name: Run type checking
       run: npm run typecheck:all
 
