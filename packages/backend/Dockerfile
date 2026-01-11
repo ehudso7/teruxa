@@ -10,6 +10,9 @@ WORKDIR /app
 COPY package*.json ./
 COPY packages/backend/package*.json ./packages/backend/
 
+# Copy root tsconfig.json (required for backend tsconfig extends)
+COPY tsconfig.json ./
+
 # Install all dependencies (needed for build)
 RUN npm ci && npm rebuild
 
