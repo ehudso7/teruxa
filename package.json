@@ -31,7 +31,10 @@
     "db:generate": "npm run db:generate -w @ugc/backend",
     "db:seed": "npm run db:seed -w @ugc/backend",
     "ci:release": "npm run build:verify && npm run test:smoke && npm run test:e2e",
-    "release:check": "./scripts/release-check.sh"
+    "release:check": "./scripts/release-check.sh",
+    "security:scan": "chmod +x ./scripts/security-scan.sh && ./scripts/security-scan.sh",
+    "security:audit": "npm audit --audit-level=high",
+    "security:fix": "npm audit fix"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

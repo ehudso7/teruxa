@@ -1,0 +1,225 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  # Vulnerability severity threshold
+  SEVERITY_THRESHOLD: HIGH,CRITICAL
+  # Docker image names
+  BACKEND_IMAGE: teruxa-backend
+  FRONTEND_IMAGE: teruxa-frontend
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  container-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      with:
+        driver-opts: network=host
+
+    # Build backend image with metadata
+    - name: Build Backend Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./packages/backend/Dockerfile
+        tags: ${{ env.BACKEND_IMAGE }}:latest
+        load: true
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        # Enable provenance and SBOM attestations
+        provenance: true
+        sbom: true
+
+    # Build frontend image with metadata
+    - name: Build Frontend Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./packages/frontend/Dockerfile
+        tags: ${{ env.FRONTEND_IMAGE }}:latest
+        load: true
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        # Enable provenance and SBOM attestations
+        provenance: true
+        sbom: true
+
+    # Run Trivy vulnerability scanner on backend
+    - name: Run Trivy vulnerability scanner - Backend
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.BACKEND_IMAGE }}:latest
+        format: 'sarif'
+        output: 'trivy-backend.sarif'
+        severity: ${{ env.SEVERITY_THRESHOLD }}
+        exit-code: '1'
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        trivyignores: '.trivyignore'
+
+    # Run Trivy vulnerability scanner on frontend
+    - name: Run Trivy vulnerability scanner - Frontend
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.FRONTEND_IMAGE }}:latest
+        format: 'sarif'
+        output: 'trivy-frontend.sarif'
+        severity: ${{ env.SEVERITY_THRESHOLD }}
+        exit-code: '1'
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        trivyignores: '.trivyignore'
+
+    # Generate detailed JSON reports for artifacts
+    - name: Generate detailed vulnerability reports
+      if: always()
+      run: |
+        # Backend detailed report
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy image --format json \
+          --output backend-vulns.json \
+          --severity ${{ env.SEVERITY_THRESHOLD }} \
+          ${{ env.BACKEND_IMAGE }}:latest || true
+
+        # Frontend detailed report
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy image --format json \
+          --output frontend-vulns.json \
+          --severity ${{ env.SEVERITY_THRESHOLD }} \
+          ${{ env.FRONTEND_IMAGE }}:latest || true
+
+        # Generate summary report
+        echo "# Vulnerability Scan Summary" > scan-summary.txt
+        echo "" >> scan-summary.txt
+        echo "## Backend Image" >> scan-summary.txt
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy image --format table \
+          --severity ${{ env.SEVERITY_THRESHOLD }} \
+          ${{ env.BACKEND_IMAGE }}:latest >> scan-summary.txt 2>&1 || true
+        echo "" >> scan-summary.txt
+        echo "## Frontend Image" >> scan-summary.txt
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy image --format table \
+          --severity ${{ env.SEVERITY_THRESHOLD }} \
+          ${{ env.FRONTEND_IMAGE }}:latest >> scan-summary.txt 2>&1 || true
+
+    # Upload scan results to GitHub Security tab
+    - name: Upload Backend Trivy results to GitHub Security
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-backend.sarif'
+        category: 'trivy-backend'
+
+    - name: Upload Frontend Trivy results to GitHub Security
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-frontend.sarif'
+        category: 'trivy-frontend'
+
+    # Generate SBOM for backend
+    - name: Generate Backend SBOM
+      if: always()
+      run: |
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy image --format cyclonedx \
+          --output backend-sbom.json \
+          ${{ env.BACKEND_IMAGE }}:latest || true
+
+    # Generate SBOM for frontend
+    - name: Generate Frontend SBOM
+      if: always()
+      run: |
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy image --format cyclonedx \
+          --output frontend-sbom.json \
+          ${{ env.FRONTEND_IMAGE }}:latest || true
+
+    # Upload all security artifacts
+    - name: Upload Security Scan Artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-scan-results-${{ github.sha }}
+        path: |
+          trivy-*.sarif
+          *-vulns.json
+          scan-summary.txt
+          *-sbom.json
+        retention-days: 30
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    # Audit npm dependencies
+    - name: Run npm audit
+      run: |
+        # Generate audit report
+        npm audit --json > npm-audit.json || true
+
+        # Generate human-readable report
+        echo "# NPM Dependency Audit Report" > npm-audit-summary.txt
+        echo "" >> npm-audit-summary.txt
+        npm audit >> npm-audit-summary.txt 2>&1 || true
+
+        # Check for high/critical vulnerabilities
+        npm audit --audit-level=high
+
+    # Generate repository SBOM
+    - name: Generate Repository SBOM
+      run: |
+        # Install CycloneDX for npm
+        npm install -g @cyclonedx/cyclonedx-npm
+
+        # Generate SBOM for root
+        cyclonedx-npm --output-format json --output-file repo-sbom.json
+
+        # Generate SBOM for backend
+        cd packages/backend
+        cyclonedx-npm --output-format json --output-file ../../backend-deps-sbom.json
+
+        # Generate SBOM for frontend
+        cd ../frontend
+        cyclonedx-npm --output-format json --output-file ../../frontend-deps-sbom.json
+
+    # Upload dependency audit artifacts
+    - name: Upload Dependency Audit Artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: dependency-audit-${{ github.sha }}
+        path: |
+          npm-audit.json
+          npm-audit-summary.txt
+          *-sbom.json
+        retention-days: 30

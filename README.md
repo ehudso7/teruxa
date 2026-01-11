@@ -181,6 +181,117 @@ When the release check fails, these artifacts are preserved:
 
 Access these via the GitHub Actions UI under "Artifacts".
 
+## Security & Supply Chain Gates
+
+Our CI/CD pipeline includes comprehensive security scanning to identify and prevent vulnerabilities from entering production.
+
+### Security Gates Overview
+
+| Gate | Type | When It Runs | Blocks PR | Description |
+|------|------|--------------|-----------|-------------|
+| **Dependency Review** | Supply Chain | Every PR | ✅ Yes | Blocks PRs introducing high/critical vulnerable dependencies |
+| **CodeQL** | SAST | PR + Push + Weekly | ❌ No* | Static analysis for security vulnerabilities |
+| **Container Scan** | Vulnerability | PR + Push | ✅ Yes | Scans Docker images for OS & library vulnerabilities |
+| **NPM Audit** | Supply Chain | PR + Push | ✅ Yes | Audits npm dependencies for known vulnerabilities |
+| **SBOM Generation** | Supply Chain | PR + Push | ❌ No | Generates Software Bill of Materials |
+
+*CodeQL results appear in the Security tab but don't block PRs by default (configurable)
+
+### Security Workflows
+
+#### 1. Dependency Review (PR-only)
+- **File**: `.github/workflows/dependency-review.yml`
+- **Purpose**: Prevent introduction of vulnerable or problematic dependencies
+- **Checks**:
+  - High/critical vulnerabilities in new dependencies
+  - License compliance (blocks GPL, AGPL, LGPL)
+  - Provides detailed comments on PRs
+
+#### 2. CodeQL Analysis
+- **File**: `.github/workflows/codeql.yml`
+- **Purpose**: Static Application Security Testing (SAST)
+- **Coverage**: JavaScript/TypeScript code
+- **Schedule**: On push, PR, and weekly scan
+- **Results**: Available in GitHub Security tab
+
+#### 3. Container Security Scanning
+- **File**: `.github/workflows/security-scan.yml`
+- **Purpose**: Scan Docker images for vulnerabilities
+- **Tool**: Trivy
+- **Threshold**: Fails on HIGH and CRITICAL vulnerabilities
+- **Outputs**:
+  - SARIF reports uploaded to Security tab
+  - JSON vulnerability reports
+  - SBOMs in CycloneDX format
+  - Summary reports in artifacts
+
+#### 4. Supply Chain Security
+- **NPM Audit**: Runs on every build
+- **SBOM Generation**: Creates Software Bill of Materials for:
+  - Docker images (via Trivy)
+  - NPM dependencies (via CycloneDX)
+- **Provenance**: Docker builds include attestations
+
+### Local Security Scanning
+
+Run security scans locally before pushing:
+
+```bash
+# Full security scan (npm + Docker images)
+npm run security:scan
+
+# NPM audit only
+npm run security:audit
+
+# Fix npm vulnerabilities automatically
+npm run security:fix
+
+# Manual Trivy scan (requires Docker)
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+  aquasec/trivy image teruxa-backend:latest
+```
+
+### Managing Vulnerabilities
+
+#### Ignoring False Positives
+
+Add vulnerabilities to `.trivyignore` with explanations:
+
+```
+# CVE-2021-12345 - False positive, not applicable to our usage
+CVE-2021-12345
+```
+
+#### Vulnerability Response Process
+
+1. **Critical/High**: Must be fixed before merging
+2. **Medium**: Fix in next release cycle
+3. **Low**: Track and fix in regular maintenance
+
+### Security Artifacts
+
+All security scans produce artifacts available in GitHub Actions:
+
+- **Vulnerability Reports**: Detailed JSON reports for each scan
+- **SARIF Files**: Integrated with GitHub Security tab
+- **SBOMs**: Software Bill of Materials in CycloneDX format
+- **Scan Summaries**: Human-readable summaries
+
+### Security Best Practices
+
+1. **Regular Updates**: Keep dependencies and base images updated
+2. **Minimal Images**: Use Alpine-based images where possible
+3. **Non-root Users**: All containers run as non-root users
+4. **Secret Scanning**: GitHub secret scanning is enabled
+5. **Security Headers**: Production includes security headers (CSP, HSTS, etc.)
+
+### Compliance
+
+- **License Checking**: Automated license compliance checking
+- **SBOM Generation**: Full supply chain transparency
+- **Audit Trail**: All security scans are logged and archived
+- **Attestations**: Docker images include provenance attestations
+
 ## API Endpoints
 
 ### Projects

@@ -1,0 +1,10 @@
+# Trivy Ignore File
+# Format: CVE-ID or vulnerability ID to ignore
+# Add a comment explaining why each vulnerability is ignored
+
+# Example (uncomment and modify as needed):
+# CVE-2021-12345  # False positive - not applicable to our usage
+# GHSA-abcd-1234-5678  # Patched in our implementation, waiting for upstream fix
+
+# Node.js base image vulnerabilities that are mitigated by our security practices
+# (Remove these once base images are updated)

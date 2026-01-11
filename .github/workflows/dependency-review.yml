@@ -1,0 +1,30 @@
+name: Dependency Review
+
+on:
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Dependency Review
+      uses: actions/dependency-review-action@v4
+      with:
+        # Fail on high or critical vulnerabilities
+        fail-on-severity: high
+        # Also check for license issues
+        license-check: true
+        # Deny problematic licenses
+        deny-licenses: GPL-3.0, AGPL-3.0, LGPL-3.0
+        # Allow up to moderate vulnerabilities in dev dependencies
+        vulnerability-check: true
+        # Comment on PR with results
+        comment-summary-in-pr: always
