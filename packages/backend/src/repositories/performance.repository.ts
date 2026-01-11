@@ -183,7 +183,7 @@ export class PerformanceRepository {
       ORDER BY total_impressions DESC
     `;
 
-    return results.map((r: RawMetricsRow) => {
+    return results.map((r) => {
       const impressions = Number(r.total_impressions);
       const clicks = Number(r.total_clicks);
       const conversions = Number(r.total_conversions);

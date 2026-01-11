@@ -1,22 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { createChildLogger } from '../utils/logger.js';
 
 const logger = createChildLogger('prisma');
-
-// Event types for Prisma logging
-interface QueryEvent {
-  query: string;
-  params: string;
-  duration: number;
-  timestamp: Date;
-  target: string;
-}
-
-interface LogEvent {
-  message: string;
-  timestamp: Date;
-  target: string;
-}
 
 declare global {
   // eslint-disable-next-line no-var
@@ -34,8 +19,7 @@ function createPrismaClient(): PrismaClient {
 
   // Log queries in development
   if (process.env.NODE_ENV === 'development') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (client as any).$on('query', (e: QueryEvent) => {
+    client.$on('query', (e: Prisma.QueryEvent) => {
       logger.debug({
         query: e.query,
         params: e.params,
@@ -44,13 +28,11 @@ function createPrismaClient(): PrismaClient {
     });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (client as any).$on('error', (e: LogEvent) => {
+  client.$on('error', (e: Prisma.LogEvent) => {
     logger.error({ error: e.message });
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (client as any).$on('warn', (e: LogEvent) => {
+  client.$on('warn', (e: Prisma.LogEvent) => {
     logger.warn({ warning: e.message });
   });
 
