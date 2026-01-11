@@ -2,8 +2,10 @@
 # Using pinned base image for reproducible builds
 FROM node:20.18.0-alpine3.20 AS builder
 
-# Install build dependencies
-RUN apk add --no-cache python3 make g++
+# Apply security patches (trade-off: security over byte-for-byte reproducibility)
+# Then install build dependencies
+RUN apk update && apk upgrade --no-cache && \
+    apk add --no-cache python3 make g++
 
 WORKDIR /app
 
@@ -31,8 +33,9 @@ RUN npm run build
 # Production stage - using pinned base image for reproducible builds
 FROM node:20.18.0-alpine3.20
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+# Apply security patches and install dumb-init for proper signal handling
+RUN apk update && apk upgrade --no-cache && \
+    apk add --no-cache dumb-init
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
