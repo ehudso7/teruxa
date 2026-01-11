@@ -51,15 +51,21 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
-    # Step B: Type checking
+    # Step B: Generate Prisma Client (required for type checking)
+    - name: Generate Prisma Client
+      run: npm run db:generate
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public
+
+    # Step C: Type checking
     - name: Run type checking
       run: npm run typecheck:all
 
-    # Step B: Linting
+    # Step D: Linting
     - name: Run linting
       run: npm run lint:all
 
-    # Step C: Build production
+    # Step E: Build production
     - name: Build production
       run: |
         # Build with production env to test release gates
@@ -81,11 +87,6 @@ jobs:
         CORS_ORIGIN=http://localhost:5173
         EOF
 
-    - name: Generate Prisma Client
-      run: npm run db:generate
-      env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public
-
     - name: Run database migrations
       run: npm run db:push
       env:
@@ -99,14 +100,14 @@ jobs:
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps chromium
 
-    # Step D: Smoke tests (fail fast)
+    # Step F: Smoke tests (fail fast)
     - name: Run smoke tests
       run: npm run test:smoke
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/teruxa_test?schema=public
         CI: true
 
-    # Step E: Full E2E tests
+    # Step G: Full E2E tests
     - name: Run E2E tests
       run: npm run test:e2e
       env:
