@@ -7,6 +7,8 @@ interface AngleCardProps {
   onStatusChange?: (status: AngleStatus) => void;
   onLocalize?: () => void;
   onDelete?: () => void;
+  onMarkWinner?: () => void;
+  onRegenerate?: () => void;
 }
 
 const statusColors: Record<AngleStatus, string> = {
@@ -22,9 +24,11 @@ export function AngleCardComponent({
   onStatusChange,
   onLocalize,
   onDelete,
+  onMarkWinner,
+  onRegenerate,
 }: AngleCardProps) {
   return (
-    <div className="card hover:shadow-md transition-shadow">
+    <div className="card hover:shadow-md transition-shadow" data-testid="angle-card">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-2">
           <span className={clsx('badge', statusColors[angle.status])}>
@@ -63,13 +67,33 @@ export function AngleCardComponent({
       </div>
 
       <div className="mt-4 pt-4 border-t flex flex-wrap gap-2">
+        {onMarkWinner && (
+          <button
+            onClick={onMarkWinner}
+            className={`btn text-xs ${angle.isWinner ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+            data-testid="angle-mark-winner"
+            aria-label="Mark as winner"
+          >
+            {angle.isWinner ? 'Winner ★' : 'Mark Winner'}
+          </button>
+        )}
+        {onRegenerate && (
+          <button
+            onClick={onRegenerate}
+            className="btn-secondary text-xs"
+            data-testid="angle-regenerate"
+            aria-label="Regenerate angle"
+          >
+            Regenerate
+          </button>
+        )}
         {onEdit && (
-          <button onClick={onEdit} className="btn-secondary text-xs">
+          <button onClick={onEdit} className="btn-secondary text-xs" aria-label="Edit angle">
             Edit
           </button>
         )}
         {onLocalize && (
-          <button onClick={onLocalize} className="btn-primary text-xs">
+          <button onClick={onLocalize} className="btn-primary text-xs" aria-label="Localize angle">
             Localize
           </button>
         )}
@@ -78,19 +102,21 @@ export function AngleCardComponent({
             <button
               onClick={() => onStatusChange('approved')}
               className="btn text-xs bg-green-100 text-green-700 hover:bg-green-200"
+              aria-label="Approve angle"
             >
               Approve
             </button>
             <button
               onClick={() => onStatusChange('rejected')}
               className="btn text-xs bg-red-100 text-red-700 hover:bg-red-200"
+              aria-label="Reject angle"
             >
               Reject
             </button>
           </>
         )}
         {onDelete && (
-          <button onClick={onDelete} className="btn-danger text-xs">
+          <button onClick={onDelete} className="btn-danger text-xs" aria-label="Delete angle">
             Delete
           </button>
         )}

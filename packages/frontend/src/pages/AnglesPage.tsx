@@ -91,6 +91,25 @@ export function AnglesPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const winnerMutation = useMutation({
+    mutationFn: ({ id, isWinner }: { id: string; isWinner: boolean }) =>
+      anglesApi.setWinner(id, isWinner),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['angles', projectId] });
+      toast.success('Winner status updated');
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const regenerateMutation = useMutation({
+    mutationFn: anglesApi.regenerate,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['angles', projectId] });
+      toast.success('Angle regenerated successfully');
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const handleLocalizeSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!localizeModal) return;
@@ -144,6 +163,8 @@ export function AnglesPage() {
             onClick={() => generateMutation.mutate(3)}
             disabled={generateMutation.isPending}
             className="btn-primary"
+            data-testid="generate-angles"
+            aria-label="Generate angles"
           >
             {generateMutation.isPending ? 'Generating...' : 'Generate 3 Angles'}
           </button>
@@ -192,6 +213,8 @@ export function AnglesPage() {
                   deleteMutation.mutate(angle.id);
                 }
               }}
+              onMarkWinner={() => winnerMutation.mutate({ id: angle.id, isWinner: !angle.isWinner })}
+              onRegenerate={() => regenerateMutation.mutate(angle.id)}
             />
           ))}
         </div>

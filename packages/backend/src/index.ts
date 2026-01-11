@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { config } from './utils/config.js';
 import { logger } from './utils/logger.js';
+import { validateEnvironment, getEnvironmentInfo } from './utils/env-validator.js';
 import { connectDatabase, disconnectDatabase } from './repositories/prisma-client.js';
 import { apiRoutes } from './routes/index.js';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
@@ -11,12 +12,49 @@ import { requestLogger } from './middleware/request-logger.js';
 
 const app = express();
 
-// Security middleware
-app.use(helmet());
+// Security middleware with production-grade settings
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  hsts: config.NODE_ENV === 'production' ? {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  } : false,
+}));
+
+// CORS configuration with strict production settings
 app.use(
   cors({
-    origin: config.CORS_ORIGIN,
+    origin: (origin, callback) => {
+      // In production, strictly validate origin
+      if (config.NODE_ENV === 'production') {
+        const allowedOrigins = config.CORS_ORIGIN.split(',').map(o => o.trim());
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
+      } else {
+        // In development/test, be more permissive
+        callback(null, config.CORS_ORIGIN || true);
+      }
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    maxAge: 86400, // 24 hours
   })
 );
 
@@ -44,6 +82,11 @@ app.use(express.urlencoded({ extended: true }));
 // Request logging
 app.use(requestLogger);
 
+// Health check endpoint (no auth, minimal overhead)
+app.get('/api/health', (_req, res) => {
+  res.json({ ok: true });
+});
+
 // API routes
 app.use('/api', apiRoutes);
 
@@ -64,6 +107,13 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 // Start server
 async function start() {
   try {
+    // Validate environment variables first
+    validateEnvironment();
+
+    // Log environment info
+    const envInfo = getEnvironmentInfo();
+    logger.info({ envInfo }, 'Starting server with environment configuration');
+
     await connectDatabase();
 
     app.listen(config.PORT, () => {

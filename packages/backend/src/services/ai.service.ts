@@ -68,15 +68,32 @@ class AIService {
   private mockMode: boolean;
 
   constructor() {
-    this.mockMode = config.AI_MOCK_MODE || !config.OPENAI_API_KEY;
+    // Production guard: Never allow mock mode in production
+    if (config.NODE_ENV === 'production' && config.AI_MOCK_MODE) {
+      logger.warn(
+        'AI_MOCK_MODE was set in production environment but has been disabled for security. ' +
+        'Mock mode is only allowed in development and test environments.'
+      );
+    }
+
+    // Force mock mode OFF in production regardless of env vars
+    const isProduction = config.NODE_ENV === 'production';
+    this.mockMode = isProduction ? false : (config.AI_MOCK_MODE || !config.OPENAI_API_KEY);
 
     if (!this.mockMode && config.OPENAI_API_KEY) {
       this.openai = new OpenAI({
         apiKey: config.OPENAI_API_KEY,
       });
+    } else if (isProduction && !config.OPENAI_API_KEY) {
+      // In production, we must have a real API key
+      throw new Error('OPENAI_API_KEY is required in production environment');
     }
 
-    logger.info({ mockMode: this.mockMode }, 'AI Service initialized');
+    logger.info({
+      mockMode: this.mockMode,
+      environment: config.NODE_ENV,
+      hasApiKey: !!config.OPENAI_API_KEY
+    }, 'AI Service initialized');
   }
 
   async generateAngles(seedData: SeedData, count: number): Promise<GeneratedAngle[]> {

@@ -94,7 +94,203 @@ npm run test
 
 # Run linting
 npm run lint
+
+# Run production release check (requires Docker)
+npm run release:check
 ```
+
+## Release Check
+
+The release check performs a complete production cold-start verification, ensuring the app can be built and run from scratch with production guards enforced.
+
+### Running Release Check Locally
+
+```bash
+# Prerequisites
+# - Docker and Docker Compose installed
+# - Clean repository state (commit or stash changes)
+
+# Run the release check
+npm run release:check
+```
+
+This will:
+1. Run build verification (typecheck, lint, production build)
+2. Build Docker images for frontend and backend
+3. Start PostgreSQL, backend, and frontend in production mode
+4. Wait for health checks
+5. Perform HTTP smoke tests on critical endpoints
+6. Verify security headers
+7. Validate production environment guards
+8. Clean up containers and volumes
+
+### Production Environment Variables
+
+For production deployments, these environment variables are required:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `OPENAI_API_KEY` | Yes | OpenAI API key (starts with `sk-`) |
+| `CORS_ORIGIN` | Yes | Allowed origin for CORS (e.g., `https://app.example.com`) |
+| `PORT` | No | Backend port (default: 3001) |
+| `AI_MOCK_MODE` | No | Must be `false` or unset in production |
+
+### CI Integration
+
+The release check runs as a required gate in our CI pipeline:
+
+#### CI Gates (in order)
+
+1. **ci job** - Core validation
+   - Type checking (`npm run typecheck:all`)
+   - Linting (`npm run lint:all`)
+   - Production build (`npm run build:all`)
+   - Unit tests (`npm run test`)
+   - Smoke tests (`npm run test:smoke`)
+   - Full E2E tests (`npm run test:e2e`)
+
+2. **release-check job** - Docker cold-start validation
+   - Docker image builds
+   - Production environment startup
+   - Health checks and smoke tests
+   - Security header validation
+   - Production guard enforcement
+
+3. **release-validation job** - Main branch only
+   - Final production build validation
+   - Uses production environment variables
+
+#### Running in GitHub Actions
+
+```yaml
+# Automatically runs on all PRs and pushes to main
+- name: Run Release Check
+  run: npm run release:check
+```
+
+The release check completes in ~30-90 seconds with Docker caching enabled. It runs in parallel with the main CI job for faster feedback.
+
+#### Artifacts on Failure
+
+When the release check fails, these artifacts are preserved:
+- `release-check.log` - Full command output
+- `docker-logs.txt` - Container logs from all services
+- `test-results/` - Playwright test results (if applicable)
+- `playwright-report/` - HTML test report (if applicable)
+
+Access these via the GitHub Actions UI under "Artifacts".
+
+## Security & Supply Chain Gates
+
+Our CI/CD pipeline includes comprehensive security scanning to identify and prevent vulnerabilities from entering production.
+
+### Security Gates Overview
+
+| Gate | Type | When It Runs | Blocks PR | Description |
+|------|------|--------------|-----------|-------------|
+| **Dependency Review** | Supply Chain | Every PR | ✅ Yes | Blocks PRs introducing high/critical vulnerable dependencies |
+| **CodeQL** | SAST | PR + Push + Weekly | ❌ No* | Static analysis for security vulnerabilities |
+| **Container Scan** | Vulnerability | PR + Push | ✅ Yes | Scans Docker images for OS & library vulnerabilities |
+| **NPM Audit** | Supply Chain | PR + Push | ✅ Yes | Audits npm dependencies for known vulnerabilities |
+| **SBOM Generation** | Supply Chain | PR + Push | ❌ No | Generates Software Bill of Materials |
+
+*CodeQL results appear in the Security tab but don't block PRs by default (configurable)
+
+### Security Workflows
+
+#### 1. Dependency Review (PR-only)
+- **File**: `.github/workflows/dependency-review.yml`
+- **Purpose**: Prevent introduction of vulnerable or problematic dependencies
+- **Checks**:
+  - High/critical vulnerabilities in new dependencies
+  - License compliance (blocks GPL, AGPL, LGPL)
+  - Provides detailed comments on PRs
+
+#### 2. CodeQL Analysis
+- **File**: `.github/workflows/codeql.yml`
+- **Purpose**: Static Application Security Testing (SAST)
+- **Coverage**: JavaScript/TypeScript code
+- **Schedule**: On push, PR, and weekly scan
+- **Results**: Available in GitHub Security tab
+
+#### 3. Container Security Scanning
+- **File**: `.github/workflows/security-scan.yml`
+- **Purpose**: Scan Docker images for vulnerabilities
+- **Tool**: Trivy
+- **Threshold**: Fails on HIGH and CRITICAL vulnerabilities
+- **Outputs**:
+  - SARIF reports uploaded to Security tab
+  - JSON vulnerability reports
+  - SBOMs in CycloneDX format
+  - Summary reports in artifacts
+
+#### 4. Supply Chain Security
+- **NPM Audit**: Runs on every build
+- **SBOM Generation**: Creates Software Bill of Materials for:
+  - Docker images (via Trivy)
+  - NPM dependencies (via CycloneDX)
+- **Provenance**: Docker builds include attestations
+
+### Local Security Scanning
+
+Run security scans locally before pushing:
+
+```bash
+# Full security scan (npm + Docker images)
+npm run security:scan
+
+# NPM audit only
+npm run security:audit
+
+# Fix npm vulnerabilities automatically
+npm run security:fix
+
+# Manual Trivy scan (requires Docker)
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+  aquasec/trivy image teruxa-backend:latest
+```
+
+### Managing Vulnerabilities
+
+#### Ignoring False Positives
+
+Add vulnerabilities to `.trivyignore` with explanations:
+
+```
+# CVE-2021-12345 - False positive, not applicable to our usage
+CVE-2021-12345
+```
+
+#### Vulnerability Response Process
+
+1. **Critical/High**: Must be fixed before merging
+2. **Medium**: Fix in next release cycle
+3. **Low**: Track and fix in regular maintenance
+
+### Security Artifacts
+
+All security scans produce artifacts available in GitHub Actions:
+
+- **Vulnerability Reports**: Detailed JSON reports for each scan
+- **SARIF Files**: Integrated with GitHub Security tab
+- **SBOMs**: Software Bill of Materials in CycloneDX format
+- **Scan Summaries**: Human-readable summaries
+
+### Security Best Practices
+
+1. **Regular Updates**: Keep dependencies and base images updated
+2. **Minimal Images**: Use Alpine-based images where possible
+3. **Non-root Users**: All containers run as non-root users
+4. **Secret Scanning**: GitHub secret scanning is enabled
+5. **Security Headers**: Production includes security headers (CSP, HSTS, etc.)
+
+### Compliance
+
+- **License Checking**: Automated license compliance checking
+- **SBOM Generation**: Full supply chain transparency
+- **Audit Trail**: All security scans are logged and archived
+- **Attestations**: Docker images include provenance attestations
 
 ## API Endpoints
 

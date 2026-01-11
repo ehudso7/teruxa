@@ -1,77 +1,52 @@
 import { defineConfig, devices } from '@playwright/test';
 
-/**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-// require('dotenv').config();
+const PORT = Number(process.env.E2E_PORT || 5173);
 
-/**
- * See https://playwright.dev/docs/test-configuration.
- */
+// Use localhost by default (macOS + IPv6 can make 127.0.0.1 polling flaky)
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || `http://localhost:${PORT}`;
+
+// Detect CI environment
+const CI = process.env.CI === 'true' || process.env.CI === '1';
+
 export default defineConfig({
   testDir: './e2e',
-  /* Run tests in files in parallel */
+  // Exclude debug tests from default runs
+  testIgnore: '**/e2e/_debug/**',
   fullyParallel: true,
-  /* Fail the build on CI if you accidentally left test.only in the source code. */
-  forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: process.env.CI ? 'github' : 'html',
-  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
+  retries: CI ? 2 : 0,
+  workers: CI ? 2 : undefined,
+
+  // Production-grade reporters
+  reporter: CI
+    ? [
+        ['github'],  // GitHub Actions annotations
+        ['html', { open: 'never' }],  // HTML report for artifacts
+        ['list'],  // Console output
+      ]
+    : [['html', { open: 'never' }]],
+
   use: {
-    /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: process.env.VITE_API_URL || 'http://localhost:5173',
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
+    baseURL: BASE_URL,
+    // Capture traces and screenshots on failure
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
 
-  /* Configure projects for major browsers */
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-
-    /* Test against other browsers if needed */
-    // {
-    //   name: 'firefox',
-    //   use: { ...devices['Desktop Firefox'] },
-    // },
-    // {
-    //   name: 'webkit',
-    //   use: { ...devices['Desktop Safari'] },
-    // },
   ],
 
-  /* Run your local dev server before starting the tests */
-  webServer: [
-    {
-      command: 'npm run dev:backend',
-      port: 3001,
-      timeout: 120 * 1000,
-      reuseExistingServer: !process.env.CI,
-      cwd: '../..',
-      env: {
-        ...process.env,
-        AI_MOCK_MODE: 'true',
-        NODE_ENV: 'test',
-      },
-    },
-    {
-      command: 'npm run dev',
-      port: 5173,
-      timeout: 120 * 1000,
-      reuseExistingServer: !process.env.CI,
-      env: {
-        ...process.env,
-        NODE_ENV: 'test',
-      },
-    },
-  ],
+  webServer: {
+    // Starts backend + frontend + prepares DB
+    command: 'node ../../scripts/start-e2e-servers.js',
+    url: BASE_URL,
+    timeout: 120000,
+    reuseExistingServer: !CI,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  },
 });
